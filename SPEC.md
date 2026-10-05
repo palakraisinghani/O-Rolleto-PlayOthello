@@ -152,8 +152,8 @@ Othello-Player/
 3. **Difficulty ladder:** level names and the engine behind each (§3.3), including whether Hard uses the network alone or a small search.
 4. **Design process:** start from a few static mock-ups (home + game screen, light/dark) for you to choose from before building the real UI?
 5. **Distribution:** source-only builds for now, or also GitHub Releases with prebuilt binaries? Also code signing for macOS/Windows (later).
-6. **Licence** for the repo.
-7. **GitHub:** repository name/visibility. The local repo is ready; the remote has not been created.
+6. ~~**Licence**~~ — **decided: MIT** (`LICENSE`).
+7. ~~**GitHub**~~ — **decided:** [`palakraisinghani/O-Rolleto-PlayOthello`](https://github.com/palakraisinghani/O-Rolleto-PlayOthello).
 
 ## 9. Milestones
 1. **M0 — Decisions:** close §8, finalise the stack, export Oroletto to ONNX from OthelloRL.
