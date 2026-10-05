@@ -1,7 +1,7 @@
 //! Checks the engine against tests/golden/engine_8x8.json, generated from the
 //! OthelloRL reference engine by tools/make_golden.py.
 
-use othello_core::{Color, Move, Outcome, Position};
+use othello_core::{Color, GreedyPlayer, Move, Outcome, Position};
 use serde_json::Value;
 
 fn golden() -> Value {
@@ -48,6 +48,10 @@ fn replay(game: &Value) {
         assert_eq!(pos, position(&ply["state"]), "{name} ply {i}: position drifted");
         let legal: Vec<u8> = pos.legal_moves().iter().map(|m| m.index()).collect();
         assert_eq!(legal, indices(&ply["legal"]), "{name} ply {i}: legal moves");
+        if !pos.legal_moves().is_empty() && pos.legal_moves() != [Move::PASS] {
+            let best: Vec<u8> = GreedyPlayer::best_moves(&pos).iter().map(|m| m.index()).collect();
+            assert_eq!(best, indices(&ply["greedy_best"]), "{name} ply {i}: greedy tied-best moves");
+        }
         let mv = Move::from_index(ply["move"].as_u64().unwrap() as u8).unwrap();
         pos = pos.play(mv).unwrap_or_else(|e| panic!("{name} ply {i}: {e}")).position;
         assert_eq!(pos, position(&ply["after"]), "{name} ply {i}: position after {mv}");

@@ -50,7 +50,16 @@ def main() -> None:
     args = ap.parse_args()
 
     OthelloEnv, State, BLACK = load_reference(args.othellorl)
+    from othello.agents.heuristic import Evaluator, HeuristicWeights  # noqa: E402
     env = OthelloEnv(N)
+    # Greedy bot = OthelloRL's heuristic bot with only the disc-count weight.
+    greedy_eval = Evaluator(env, HeuristicWeights(disc=1.0, mobility=0.0, corner=0.0, xsquare=0.0))
+
+    def greedy_best(s, legal):
+        """All moves tied for best 1-ply value (the reference bot picks one uniformly)."""
+        vals = {m: greedy_eval.evaluate(env.step(s, m), s.player) for m in legal}
+        top = max(vals.values())
+        return [m for m in legal if vals[m] == top]
 
     hx = lambda bits: f"{bits:016x}"
     side = lambda p: "black" if p == BLACK else "white"
@@ -72,7 +81,8 @@ def main() -> None:
             if m is None:
                 break
             t = env.step(s, m)
-            plies.append({"state": enc(s), "legal": legal, "move": m, "after": enc(t)})
+            plies.append({"state": enc(s), "legal": legal, "greedy_best": greedy_best(s, legal),
+                          "move": m, "after": enc(t)})
             s = t
         final = {"state": enc(s), "legal": env.legal_moves(s), "terminal": env.is_terminal(s)}
         if final["terminal"]:

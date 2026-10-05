@@ -2,7 +2,7 @@
 
 A desktop app for playing Othello (8×8) on your own machine, offline. Play the computer at four difficulty levels, or play a friend on the same computer. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); the four levels differ only in MCTS simulations, move temperature and root noise.
 
-> **Status: early development.** The Rust game engine (`core/`) is done and passes the golden tests. The bots, Oroletto, the Tauri app and the UI are not built yet. See [Roadmap](#roadmap).
+> **Status: early development.** The Rust game engine and the baseline bots (`core/`) are done and pass the golden tests. Oroletto, the Tauri app and the UI are not built yet. See [Roadmap](#roadmap).
 
 ## Planned stack
 
@@ -18,14 +18,14 @@ The UI never implements rules: it sends commands (`new_game`, `play`, `undo`, ..
 ```
 SPEC.md                    specification, decisions, milestones
 Cargo.toml                 Rust workspace
-core/                      Rust crate `othello-core`: engine, rules, history/undo
+core/                      Rust crate `othello-core`: engine, rules, history/undo, random + greedy bots
 LICENSE                    MIT
 requirements.txt           Python tooling dependencies (not needed to run the app)
 tools/make_golden.py       generates the golden test data from OthelloRL
 tests/golden/              reference data the Rust engine is tested against
 ```
 
-Planned (not yet created): bots and MCTS in `core/`, `app/` (Tauri shell), `ui/` (Svelte front-end), `models/` (Oroletto ONNX + manifest).
+Planned (not yet created): MCTS and Oroletto in `core/`, `app/` (Tauri shell), `ui/` (Svelte front-end), `models/` (Oroletto ONNX + manifest).
 
 ## Conventions
 
@@ -43,7 +43,7 @@ These match OthelloRL exactly, because the Oroletto model's input and output lay
 
 - perft counts for depths 1–7 (4, 12, 56, 244, 1396, 8200, 55092);
 - six hand-built rule cases (forced pass, double-pass ending, pass-counter reset, full-board draw / black win / white win, last square);
-- 100 seeded random games, each ply with its legal moves and the resulting position (including forced passes).
+- 100 seeded random games, each ply with its legal moves, the greedy bot's tied-best moves and the resulting position (including forced passes).
 
 Bitboards are stored as 16-digit hex strings, since a `u64` does not fit a JSON number. The file records the OthelloRL commit it came from.
 
