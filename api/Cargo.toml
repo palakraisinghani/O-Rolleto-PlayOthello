@@ -1,0 +1,11 @@
+[package]
+name = "othello-api"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Command/event API between the Othello UI and the engine (no UI toolkit dependency)"
+
+[dependencies]
+othello-core = { path = "../core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

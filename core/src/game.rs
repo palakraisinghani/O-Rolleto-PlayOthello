@@ -32,6 +32,26 @@ impl Game {
         self.history[self.history.len() - 1].last
     }
 
+    /// The most recent *placement* (skipping passes) and the discs it flipped.
+    pub fn last_placement(&self) -> Option<(Move, u64)> {
+        self.history.iter().rev().filter_map(|e| e.last).find(|(m, _)| !m.is_pass())
+    }
+
+    /// The position after `ply` moves (0 = the start).
+    pub fn position_at(&self, ply: usize) -> Option<&Position> {
+        self.history.get(ply).map(|e| &e.position)
+    }
+
+    /// The move played from `ply` to `ply + 1`.
+    pub fn move_after(&self, ply: usize) -> Option<Move> {
+        self.history.get(ply + 1).and_then(|e| e.last).map(|(m, _)| m)
+    }
+
+    /// Roll back to the position after `ply` moves; no-op if `ply` is in the future.
+    pub fn undo_to(&mut self, ply: usize) {
+        self.history.truncate(ply + 1);
+    }
+
     /// Number of moves (including passes) played so far.
     pub fn ply(&self) -> usize {
         self.history.len() - 1
@@ -83,6 +103,21 @@ mod tests {
         assert_eq!(*g.position(), start);
         assert_eq!(g.last_move(), None);
         assert!(!g.undo());
+    }
+
+    #[test]
+    fn history_access_and_rollback() {
+        let mut g = Game::new();
+        let (d3, c3) = (Move::parse("d3").unwrap(), Move::parse("c3").unwrap());
+        g.play(d3).unwrap();
+        g.play(c3).unwrap();
+        assert_eq!((g.move_after(0), g.move_after(1), g.move_after(2)), (Some(d3), Some(c3), None));
+        assert_eq!(g.last_placement().map(|(m, _)| m), Some(c3));
+        let after_first = *g.position_at(1).unwrap();
+        g.undo_to(1);
+        assert_eq!((g.ply(), *g.position()), (1, after_first));
+        g.undo_to(7);
+        assert_eq!(g.ply(), 1);
     }
 
     #[test]

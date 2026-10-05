@@ -2,7 +2,7 @@
 
 A desktop app for playing Othello (8×8) on your own machine, offline. Play the computer at four difficulty levels, or play a friend on the same computer. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); the four levels differ only in MCTS simulations, move temperature and root noise.
 
-> **Status: early development.** The Rust game engine and the baseline bots (`core/`) are done and pass the golden tests. Oroletto, the Tauri app and the UI are not built yet. See [Roadmap](#roadmap).
+> **Status: early development.** The Rust game engine, baseline bots and the UI-facing API (`core/`, `api/`) are done and tested. Oroletto, the Tauri app and the UI are not built yet. See [Roadmap](#roadmap).
 
 ## Planned stack
 
@@ -19,6 +19,7 @@ The UI never implements rules: it sends commands (`new_game`, `play`, `undo`, ..
 SPEC.md                    specification, decisions, milestones
 Cargo.toml                 Rust workspace
 core/                      Rust crate `othello-core`: engine, rules, history/undo, random + greedy bots
+api/                       Rust crate `othello-api`: the command/event API the UI talks to (see SPEC §4.3)
 LICENSE                    MIT
 requirements.txt           Python tooling dependencies (not needed to run the app)
 tools/make_golden.py       generates the golden test data from OthelloRL
@@ -63,7 +64,7 @@ OthelloRL is expected at `../OthelloRL`; override with `--othellorl PATH` or `$O
 With the Rust toolchain installed:
 
 ```bash
-cargo test      # unit tests + the golden-file checks against OthelloRL
+cargo test      # engine + API tests, incl. the golden-file checks against OthelloRL
 ```
 
 ## Build prerequisites (planned, for the app)

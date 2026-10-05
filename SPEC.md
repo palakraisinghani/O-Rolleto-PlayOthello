@@ -118,6 +118,29 @@ The numbers are **placeholders**. They are tuned empirically once the 8×8 model
 
 ---
 
+### 4.3 UI ↔ engine API (crate `othello-api`, no Tauri dependency)
+The Tauri shell only forwards these to a `Session`; the logic is testable without a UI. Types are serde JSON with snake_case names.
+
+**Commands** (each returns the new `Snapshot` or an `ApiError {code, ...}`):
+- `new_game(mode)`: `mode` is `{kind:"vs_computer", difficulty:1..4, human:"black"|"white"|"random"}` or `{kind:"two_players", black_name?, white_name?}`.
+- `play(square)`: a placement, square 0–63 (`a1` = 0). Passes are never sent by the UI.
+- `undo()`: two-player undoes one move; vs computer undoes your move and the reply. Automatic passes go with them. A computer search in progress is cancelled.
+- `resign()`: you lose vs the computer; in two-player mode the side to move loses.
+- `hint()`: a suggested square, vs computer on your turn only (blocking; the app calls it off the UI thread).
+- `snapshot()`: the current state, e.g. after a reload.
+- Settings are a `Settings` struct (`show_legal_moves`, `animations`, `sound`, `theme`, `default_difficulty`, `default_human_side`) loaded from and saved to a JSON file by the shell.
+
+**Snapshot:** `board` (64 cells: 0 empty, 1 black, 2 white), `to_move`, `awaiting` (`human`|`computer`|`nobody`), `legal` (squares the human may play; empty while the computer thinks), `last_move`, `flipped` (for the flip animation), disc counts, `status` (`playing` or `over{winner, resigned}`; no winner is a draw), resolved `mode`, `can_undo`, `ply`, `history` (move names).
+
+**Events** (pushed to the UI): `state_changed{snapshot}`, `passed{side}` (sent before the `state_changed` that follows, for the pass banner), `thinking{progress}`, `game_over{winner, resigned, black, white}`.
+
+**Behaviour that is part of the contract:**
+- Forced passes are played automatically and always announced with `passed`; they are never silent and never need a click.
+- The computer runs on a worker thread through an `Engine` trait with a cancellation flag and progress reporting. A move that finishes after an undo, new game or resignation is discarded.
+- Events are emitted after the internal lock is released.
+- There is no separate `cancel_ai` command: cancellation happens implicitly on undo, new game and resign.
+- Until Oroletto lands (M4), levels use placeholder bots: level 1 random, levels 2–4 greedy.
+
 ## 5. Non-functional requirements
 - **Performance:** UI at 60 fps during animations; AI move ≤ 2 s; cold start ≤ 2 s.
 - **Offline:** no network access at any time.
@@ -162,7 +185,7 @@ Othello-Player/
 **Phase A — Backend + API, with a plain throwaway UI** (goal: freeze the command/event API)
 1. **M0 — Decisions:** close §8 (remaining: mock-ups, distribution). The Oroletto ONNX export from OthelloRL happens when the 8×8 model is ready (not blocking).
 2. **M1 — Core:** 8×8 engine + rule-based bots (test baselines and dev stand-ins) + rules tests (cross-checked against OthelloRL).
-3. **M2 — API:** Tauri command/event layer, AI off the UI thread with cancellation; **API frozen here**.
+3. **M2 — API:** `othello-api` crate (done: commands, events, session, AI worker thread with cancellation, settings; see §4.3), then the thin Tauri shell around it; **API frozen when the shell lands**.
 4. **M3 — Plain UI:** unstyled board, counts, pass banner, undo, settings, result; scripted full game in each mode.
 5. **M4 — Oroletto in the app:** ONNX inference + MCTS with temperature and root noise + parity tests once the 8×8 model is exported; the four levels tuned to the 2 s budget and to clear strength gaps.
 
