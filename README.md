@@ -2,7 +2,7 @@
 
 A desktop app for playing Othello (8×8) on your own machine, offline. Play the computer at four difficulty levels, or play a friend on the same computer. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); the four levels differ only in MCTS simulations, move temperature and root noise.
 
-> **Status: early development.** The specification is written and the reference test data exists; there is no application code yet. See [Roadmap](#roadmap).
+> **Status: early development.** The Rust game engine (`core/`) is done and passes the golden tests. The bots, Oroletto, the Tauri app and the UI are not built yet. See [Roadmap](#roadmap).
 
 ## Planned stack
 
@@ -17,13 +17,15 @@ The UI never implements rules: it sends commands (`new_game`, `play`, `undo`, ..
 
 ```
 SPEC.md                    specification, decisions, milestones
+Cargo.toml                 Rust workspace
+core/                      Rust crate `othello-core`: engine, rules, history/undo
 LICENSE                    MIT
 requirements.txt           Python tooling dependencies (not needed to run the app)
 tools/make_golden.py       generates the golden test data from OthelloRL
 tests/golden/              reference data the Rust engine is tested against
 ```
 
-Planned (not yet created): `core/` (Rust engine, bots, MCTS), `app/` (Tauri shell), `ui/` (Svelte front-end), `models/` (Oroletto ONNX + manifest).
+Planned (not yet created): bots and MCTS in `core/`, `app/` (Tauri shell), `ui/` (Svelte front-end), `models/` (Oroletto ONNX + manifest).
 
 ## Conventions
 
@@ -56,9 +58,17 @@ python tools/make_golden.py --check    # verify the committed file is current
 
 OthelloRL is expected at `../OthelloRL`; override with `--othellorl PATH` or `$OTHELLO_RL`. No Python is needed to build or run the app itself.
 
-## Build prerequisites (planned)
+## Run the tests
 
-Once the app exists you will need the Rust toolchain ([rustup](https://rustup.rs)) and Node.js. On Linux you also need the WebView libraries (`sudo apt install libwebkit2gtk-4.1-dev` and friends). Exact build instructions will be added with the first buildable release.
+With the Rust toolchain installed:
+
+```bash
+cargo test      # unit tests + the golden-file checks against OthelloRL
+```
+
+## Build prerequisites (planned, for the app)
+
+The engine only needs the Rust toolchain ([rustup](https://rustup.rs)). The app will also need Node.js. On Linux you also need the WebView libraries (`sudo apt install libwebkit2gtk-4.1-dev` and friends). Exact build instructions will be added with the first buildable release.
 
 ## Roadmap
 

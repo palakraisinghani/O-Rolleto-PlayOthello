@@ -1,0 +1,11 @@
+[package]
+name = "othello-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "8x8 Othello engine: bitboard rules, history/undo (UI-independent)"
+
+[dependencies]
+
+[dev-dependencies]
+serde_json = "1"
