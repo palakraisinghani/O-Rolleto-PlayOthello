@@ -1,0 +1,7 @@
+# Python tooling only (tools/make_golden.py). The app itself is Rust + Svelte and
+# needs no Python at build or run time.
+#
+# The generator imports the OthelloRL reference engine (othello/env.py), which
+# depends on numpy. Check out OthelloRL next to this repo, or point at it with
+# $OTHELLO_RL / --othellorl.
+numpy>=1.21

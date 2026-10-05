@@ -5,11 +5,10 @@ target/
 node_modules/
 dist/
 .vite/
-# Python (if the PySide6 path is chosen)
+# Python tooling
 __pycache__/
 *.pyc
-build/
-*.spec
+.venv/
 # OS / editor
 .DS_Store
 .idea/

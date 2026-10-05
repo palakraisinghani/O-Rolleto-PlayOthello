@@ -37,9 +37,10 @@ Status: **draft v0.2** — sections marked ❓ need a decision before implementa
 ## 3. Functional requirements
 
 ### 3.1 Board and rules
-- Board size: **8×8** for v1 (decided). The engine still takes board size as a parameter. Standard start position; **Black moves first**.
+- Board size: **8×8 only** (decided). Standard start position; **Black moves first**.
 - Legal-move generation, flipping in all 8 directions, **forced pass** when a player has no legal move (shown clearly, never silent), game ending after two consecutive passes or a full board, and disc counts.
-- The engine must reproduce OthelloRL's results exactly: perft counts on 8×8 (depth 1–6: 4, 12, 56, 244, 1396, 8200) and the 6×6 rules cases from OthelloRL's test suite.
+- The engine is **8×8 only** (no other sizes) and must reproduce OthelloRL exactly, as checked against `tests/golden/engine_8x8.json`: perft counts (depth 1–7: 4, 12, 56, 244, 1396, 8200, 55092), forced-pass / double-pass / full-board cases, and 100 seeded random games with legal moves and resulting positions at every ply.
+- **Conventions** (same as OthelloRL, since the model layout depends on them): square `(row, col)` = index `row*8 + col`, `a1` = 0 top-left, `h8` = 63, pass = 64; start position white d4/e5, black e4/d5; Black moves first.
 
 ### 3.2 Game screen
 - Board with discs, coordinates (a–h / 1–8), **legal-move hints** (toggleable), **last-move highlight**, and **flip animation**.
@@ -92,7 +93,7 @@ The numbers are **placeholders**. They are tuned empirically once the 8×8 model
 
 - **Separation:** the UI never implements rules. It sends commands and renders the state it receives. The UI can then be redesigned freely without touching the engine or the AI.
 - **The AI runs off the UI thread**, can be cancelled (e.g. on Undo or New game), and reports progress for the thinking indicator.
-- **Board size is a parameter everywhere**, as in OthelloRL.
+- **8×8 only.** No other board sizes are supported (decided).
 
 ### 4.1 Technology — decided: Tauri 2 + Svelte
 **[Tauri 2](https://tauri.app)**
@@ -112,7 +113,7 @@ The numbers are **placeholders**. They are tuned empirically once the 8×8 model
 - OthelloRL exports Oroletto to **ONNX**, with a new export script to be added there. The file is shipped in this repo under `models/` (~1.2 MB), together with a JSON manifest.
 - **Input:** `float32[batch, 3, n, n]`, with planes (own discs, opponent discs, legal moves) from the side to move.
 - **Outputs:** `policy_logits float32[batch, n*n+1]` (last index = pass); `value float32[batch]` in [−1, 1] for the side to move.
-- **The manifest** (`models/oroletto-6x6.json`) records: board size, planes, `c_puct = 1.5`, default simulations per level, OthelloRL commit hash and run id (`results/alphazero/seed1`), and a SHA-256 of the ONNX file.
+- **The manifest** (`models/oroletto-8x8.json`) records: board size, planes, `c_puct = 1.5`, default simulations per level, OthelloRL commit hash and run id (`results/alphazero/seed1`), and a SHA-256 of the ONNX file.
 - **Search parity:** the app's MCTS matches OthelloRL's (PUCT, values negated each ply). The parity test runs with noise off and temperature 0 (greedy by visit count); noise and temperature are the app's difficulty knobs (§3.3), on top of the same search. A parity test checks that, for a fixed set of positions, the Rust/app search picks the same moves as OthelloRL's Python search with the same seed and simulation count (allowing ties).
 
 ---
@@ -131,11 +132,13 @@ The numbers are **placeholders**. They are tuned empirically once the 8×8 model
 Othello-Player/
   SPEC.md            this document
   README.md          what it is + build instructions
-  models/            oroletto-6x6.onnx + manifest
+  models/            oroletto-8x8.onnx + manifest
   core/              Rust crate: engine, bots, MCTS, ONNX inference (UI-independent)
   app/               Tauri shell (Rust) wiring core ↔ UI commands
   ui/                TypeScript front-end (screens, board, themes)
-  tests/             cross-checks against OthelloRL reference data
+  tests/golden/      reference data generated from OthelloRL (engine_8x8.json)
+  tools/             make_golden.py (regenerates the golden data; see requirements.txt)
+  requirements.txt   Python tooling deps only
   .github/workflows/ CI: test + build release binaries for 3 OSes
 ```
 
@@ -148,7 +151,7 @@ Othello-Player/
 
 ## 8. Open decisions ❓
 1. ~~**Technology stack**~~ — **decided: Tauri 2 + Svelte.**
-2. ~~**Board sizes**~~ — **decided: 8×8.** Oroletto is trained on 6×6 only for now. All four levels need the 8×8 model, which you will export from OthelloRL when it is ready. Until then development uses the rule-based bots as stand-ins.
+2. ~~**Board sizes**~~ — **decided: 8×8.** The engine supports 8×8 only. Oroletto is currently trained on 6×6 only. All four levels need the 8×8 model, which you will export from OthelloRL when it is ready. Until then development uses the rule-based bots as stand-ins.
 3. ~~**Difficulty ladder**~~ — **decided: 4 levels, one AlphaZero model**, varied by simulations, temperature and root noise (§3.3). Exact values to be tuned once the 8×8 model exists.
 4. **Design process:** start from a few static mock-ups (home + game screen, light/dark) for you to choose from before building the real UI?
 5. **Distribution:** source-only builds for now, or also GitHub Releases with prebuilt binaries? Also code signing for macOS/Windows (later).
