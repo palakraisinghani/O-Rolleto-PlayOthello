@@ -5,7 +5,7 @@ with it (in `bash launch.sh` dev mode). No code changes needed.
 
 The look: a casino card room. Mahogany wood everywhere, burnished brass rims, red velvet
 buttons, green felt for the board and panels, glossy black and white discs, an animated
-red-green-blue light glowing round the edge of the window, and poker chips that splash across
+RGB LED strip round the edge of the window, and poker chips that splash across
 the screen at the start of a game and rain down when someone wins.
 
 ## How to edit
@@ -47,7 +47,7 @@ neon_purple: #8a3dff
 
 ## 2. Room (main_bg: the wooden wall behind everything)
 
-Just the wood: no vignette, lamp or drifting colour. The only light is the border lighting below.
+Just the wood: no vignette, lamp or drifting colour. The only light is the LED strip below.
 
 ```tokens
 main_bg: #1c0b06                          # colour shown if the image is missing
@@ -55,23 +55,23 @@ main_bg_image: url(/textures/wood.png) center / cover     # the mahogany wood
 main_bg_tint: rgba(12, 4, 2, 0.4)         # darkens the wood so text stays readable: 0 = untouched wood
 ```
 
-## 3. Border lighting (RGB light glowing round the edge of the window)
+## 3. Border lighting (an RGB LED strip round the edge of the window)
 
-A red, green and blue light travels round the border. Only its **glow** is shown: a thin
-ring that is blurred so it reads as coloured light bleeding in from the edges, plus a wider,
-fainter halo behind it.
+A strip of little LEDs runs round all four edges, like an addressable LED strip: every bulb has
+its own colour, the colour pattern flows along the strip (clockwise), the bulbs twinkle in two
+alternating sets (like the bulbs on the board frame), and each one has its own glow.
 
 ```tokens
-border_light_red: #ff1a2e
-border_light_green: #19ff5a
-border_light_blue: #1f5bff
-border_light_pattern: var(--d-border-light-red), var(--d-border-light-green), var(--d-border-light-blue), var(--d-border-light-red)   # colour stops round the border; end on the same colour you start with. Repeat the three to get two sweeps, or add percentages (red 0%, green 20%, ...)
-border_light_width: 26px                  # thickness of the ring before it is blurred (thicker = stronger glow)
-border_light_glow: 26px                   # blur of the tight glow: bigger = softer and reaches further in
-border_light_halo: 70px                   # blur of the wide, faint halo behind it
-border_light_halo_opacity: 0.6            # 0 = no halo
-border_light_opacity: 1                   # overall strength: 0 = off
-border_light_spin_duration: 7s            # one full trip round the border (bigger = slower, 9999s = still)
+border_light_pattern: #ff1a2e, #ff2fb3, #8a3dff, #1f5bff, #1de9ff, #19ff5a, #ffd23f, #ff1a2e   # colours along the strip, in order (red, pink, purple, blue, cyan, green, yellow). End on the colour you start with so the loop is seamless; add percentages to change how wide each colour is, e.g. red 0%, blue 30%, ...
+border_light_bulb_size: 14px              # diameter of each bulb
+border_light_spacing: 30px                # distance between bulbs
+border_light_inset: 6px                   # gap between the strip and the edge of the window
+border_light_core: #ffffff                # bright centre of each bulb
+border_light_glow: 9px                    # blur of each bulb's glow: bigger = a wider halo (0px = none)
+border_light_glow_opacity: 1              # strength of the glow
+border_light_flow_duration: 10s           # time for the colours to travel one full pattern along the strip (bigger = slower, 9999s = still)
+border_light_chase_duration: 1.8s         # twinkle period: the two interleaved sets alternate (9999s = steady)
+border_light_dim: 0.4                     # brightness of the bulbs in their "off" phase: 1 = never dim, 0 = fully dark
 ```
 
 ## 4. Text and fonts
@@ -174,7 +174,7 @@ board_frame_border_width: 5px
 board_frame_radius: 22px
 board_frame_padding: 38px                 # thickness of the wood rail (holds the bulbs)
 board_frame_glow: var(--d-brass-light)    # warm halo around the whole board
-board_frame_max_size: 68vh                # biggest the board gets, relative to window height
+board_frame_max_size: 900px               # biggest the board gets (it otherwise fills the space the window leaves)
 ```
 
 ## 12. Marquee bulbs (the chasing lights on the frame)

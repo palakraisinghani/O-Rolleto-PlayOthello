@@ -7,6 +7,8 @@
 :root {
   color-scheme: dark;
   font-family: var(--d-font-ui);
+  /* Room left clear of the LED strip round the window edge, so content never sits on it. */
+  --edge-band: calc(var(--d-border-light-inset) + var(--d-border-light-bulb-size) + 10px);
 }
 
 * { box-sizing: border-box; }
@@ -179,16 +181,6 @@ input[type='checkbox'] { width: 1.2rem; height: 1.2rem; accent-color: var(--d-ch
 }
 
 /* ---------------------------------------------------------------- keyframes */
-
-/* A registered angle so the border light's conic gradient can be animated smoothly. */
-@property --edge-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-@keyframes edge-spin {
-  to { --edge-angle: 360deg; }
-}
 
 @keyframes neon-cycle {
   0% { filter: hue-rotate(0deg); }

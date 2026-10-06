@@ -71,12 +71,14 @@
 </div>
 
 <style>
+  /* The frame fills the square the surrounding stage (a size container) allows, so the whole
+     board always fits the window; rail and bulbs shrink with it. */
   .frame {
-    --bulb-size: var(--d-bulb-size);
+    --s: min(100cqw, 100cqh, var(--d-board-frame-max-size));
+    --bulb-size: min(var(--d-bulb-size), calc(var(--s) * 0.05));
     position: relative;
-    width: min(100%, var(--d-board-frame-max-size));
-    margin-inline: auto;
-    padding: var(--d-board-frame-padding);
+    width: var(--s);
+    padding: min(var(--d-board-frame-padding), calc(var(--s) * 0.07));
     border-radius: var(--d-board-frame-radius);
     border: var(--d-board-frame-border-width) ridge var(--d-board-frame-border);
     background: var(--d-board-frame-bg);
@@ -89,12 +91,12 @@
 
   /* Marquee bulbs: two interleaved sets blink in alternation, so the lights chase. */
   .bulbs { position: absolute; pointer-events: none; }
-  .bulbs.top, .bulbs.bottom { left: 14px; right: 14px; height: var(--bulb-size); }
-  .bulbs.top { top: 6px; }
-  .bulbs.bottom { bottom: 6px; }
-  .bulbs.left, .bulbs.right { top: 14px; bottom: 14px; width: var(--bulb-size); }
-  .bulbs.left { left: 6px; }
-  .bulbs.right { right: 6px; }
+  .bulbs.top, .bulbs.bottom { left: calc(var(--bulb-size) * 0.54); right: calc(var(--bulb-size) * 0.54); height: var(--bulb-size); }
+  .bulbs.top { top: calc(var(--bulb-size) * 0.23); }
+  .bulbs.bottom { bottom: calc(var(--bulb-size) * 0.23); }
+  .bulbs.left, .bulbs.right { top: calc(var(--bulb-size) * 0.54); bottom: calc(var(--bulb-size) * 0.54); width: var(--bulb-size); }
+  .bulbs.left { left: calc(var(--bulb-size) * 0.23); }
+  .bulbs.right { right: calc(var(--bulb-size) * 0.23); }
   .bulbs i {
     --bulb: var(--d-bulb-color);
     position: absolute;

@@ -169,7 +169,7 @@
 
 <Lights />
 
-<main>
+<main class:in-game={screen === 'game'}>
   {#if screen === 'home'}
     <section class="home">
       <div class="hero" aria-hidden="true">
@@ -249,56 +249,61 @@
       <div class="row"><button class="btn small" onclick={() => (screen = 'home')}>Back</button></div>
     </div>
   {:else if screen === 'game' && snap}
-    <header class="topbar">
-      <button class="btn icon" onclick={() => (screen = 'home')} aria-label="Home"><Icon name="home" /></button>
-      <span class="neon mini">Othello</span>
-    </header>
+    <div class="game">
+      <header class="topbar">
+        <button class="btn icon" onclick={() => (screen = 'home')} aria-label="Home"><Icon name="home" /></button>
+        <span class="neon mini">Othello</span>
+      </header>
 
-    <section class="scoreboard" aria-label="Score">
-      {#each ['black', 'white'] as const as side}
-        <div class="player" class:active={!over && snap.to_move === side}>
-          <span class="chip {side}"></span>
-          <span class="who">{playerName(side)}</span>
-          {#key side === 'black' ? snap.black_count : snap.white_count}
-            <strong class="count">{side === 'black' ? snap.black_count : snap.white_count}</strong>
-          {/key}
-        </div>
-      {/each}
-    </section>
+      <section class="scoreboard" aria-label="Score">
+        {#each ['black', 'white'] as const as side}
+          <div class="player" class:active={!over && snap.to_move === side}>
+            <span class="chip {side}"></span>
+            <span class="who">{playerName(side)}</span>
+            {#key side === 'black' ? snap.black_count : snap.white_count}
+              <strong class="count">{side === 'black' ? snap.black_count : snap.white_count}</strong>
+            {/key}
+          </div>
+        {/each}
+      </section>
 
-    <p class="status" role="status" aria-live="polite">
-      {#if over}Game over
-      {:else if snap.awaiting === 'computer'}<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span> Computer is thinking{#if thinking !== null && thinking < 1} · {Math.round(thinking * 100)}%{/if}
-      {:else}{playerName(snap.to_move)} to move{/if}
-    </p>
+      <p class="status" role="status" aria-live="polite">
+        {#if over}Game over
+        {:else if snap.awaiting === 'computer'}<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span> Computer is thinking{#if thinking !== null && thinking < 1} · {Math.round(thinking * 100)}%{/if}
+        {:else}{playerName(snap.to_move)} to move{/if}
+      </p>
 
-    {#if banner}<p class="banner" role="status">{banner}</p>{/if}
-    {#if error}<p class="error" role="alert">{error}</p>{/if}
-
-    <Board {snap} showLegal={settings.show_legal_moves} {hintSquare} onSquare={onSquare} />
-
-    <div class="controls">
-      <div class="ctl">
-        <button class="btn icon" onclick={doUndo} disabled={!snap.can_undo} aria-label="Undo"><Icon name="undo" /></button>
-        <span>Undo</span>
+      <div class="stage">
+        <Board {snap} showLegal={settings.show_legal_moves} {hintSquare} onSquare={onSquare} />
       </div>
-      {#if snap.mode.kind === 'vs_computer'}
+
+      <div class="controls">
         <div class="ctl">
-          <button class="btn icon" onclick={doHint} disabled={snap.awaiting !== 'human'} aria-label="Hint"><Icon name="hint" /></button>
-          <span>Hint</span>
+          <button class="btn icon" onclick={doUndo} disabled={!snap.can_undo} aria-label="Undo"><Icon name="undo" /></button>
+          <span>Undo</span>
         </div>
-      {/if}
-      <div class="ctl">
-        <button class="btn icon" onclick={doResign} disabled={!!over} aria-label="Resign"><Icon name="resign" /></button>
-        <span>Resign</span>
+        {#if snap.mode.kind === 'vs_computer'}
+          <div class="ctl">
+            <button class="btn icon" onclick={doHint} disabled={snap.awaiting !== 'human'} aria-label="Hint"><Icon name="hint" /></button>
+            <span>Hint</span>
+          </div>
+        {/if}
+        <div class="ctl">
+          <button class="btn icon" onclick={doResign} disabled={!!over} aria-label="Resign"><Icon name="resign" /></button>
+          <span>Resign</span>
+        </div>
+        <div class="ctl">
+          <button class="btn icon primary" onclick={() => rematch(false)} aria-label="New game"><Icon name="new" /></button>
+          <span>New game</span>
+        </div>
       </div>
-      <div class="ctl">
-        <button class="btn icon primary" onclick={() => rematch(false)} aria-label="New game"><Icon name="new" /></button>
-        <span>New game</span>
-      </div>
+
+      <p class="history">{snap.history.join(' · ')}</p>
     </div>
 
-    <p class="history">{snap.history.join(' · ')}</p>
+    <!-- Notices float over the page, so they never move the board. -->
+    {#if banner}<p class="toast banner" role="status">{banner}</p>{/if}
+    {#if error}<p class="toast error" role="alert">{error}</p>{/if}
 
     {#if over}
       {#if celebrate && settings.animations}<ChipRain />{/if}
@@ -326,15 +331,26 @@
   main {
     max-width: 40rem;
     margin: 0 auto;
-    padding: 1rem 1rem 2rem;
+    padding: var(--edge-band);
     min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  /* The game screen fills the window exactly (no scrolling): the board takes whatever room is left. */
+  main.in-game {
+    max-width: none;
+    height: 100vh;
+    height: 100dvh;
+    justify-content: flex-start;
   }
   .muted { opacity: 0.7; margin: 0; color: var(--d-ink-dim); }
   .row { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; margin-top: 0.4rem; }
 
   /* ---- home ---- */
-  .home { display: flex; flex-direction: column; align-items: center; padding-top: 4vh; }
-  .logo { font-size: clamp(3rem, 14vw, 6.5rem); margin: 0.2em 0 0; text-align: center; line-height: 1.05; }
+  .home { display: flex; flex-direction: column; align-items: center; }
+  .logo { font-size: clamp(2.2rem, min(13vw, 11vh), 6.5rem); margin: 0.2em 0 0; text-align: center; line-height: 1.05; }
   .tagline {
     font-family: var(--d-font-serif);
     font-style: italic;
@@ -342,12 +358,12 @@
     text-transform: uppercase;
     font-size: 0.9rem;
     color: var(--d-ink-dim);
-    margin: 0.4rem 0 2rem;
+    margin: 0.3rem 0 clamp(0.8rem, 3.5vh, 2rem);
     text-align: center;
   }
-  .menu { display: flex; flex-direction: column; gap: 1.1rem; width: min(100%, 20rem); }
+  .menu { display: flex; flex-direction: column; gap: clamp(0.5rem, 1.8vh, 1.1rem); width: min(100%, 20rem); }
   /* Hero: a slow roulette wheel with the black/white coin spinning on its hub. */
-  .hero { position: relative; width: var(--d-wheel-size); height: var(--d-wheel-size); display: grid; place-items: center; margin-bottom: 0.4rem; }
+  .hero { position: relative; width: min(var(--d-wheel-size), 22vh); height: min(var(--d-wheel-size), 22vh); display: grid; place-items: center; margin-bottom: 0.4rem; }
   .wheel {
     position: absolute; inset: 0; border-radius: 50%;
     background: repeating-conic-gradient(var(--d-wheel-red) 0 15deg, var(--d-wheel-black) 15deg 30deg);
@@ -373,7 +389,7 @@
   @keyframes wheel-spin { to { transform: rotate(360deg); } }
 
   /* ---- sub-screens ---- */
-  .title { font-size: clamp(1.8rem, 8vw, 3rem); text-align: center; margin: 1.2rem 0 1.4rem; }
+  .title { font-size: clamp(1.8rem, 8vw, 3rem); text-align: center; margin: 0 0 clamp(0.8rem, 3vh, 1.4rem); }
   .panel { display: flex; flex-direction: column; gap: 1rem; padding: 1.6rem; }
   .panel label { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-family: var(--d-font-serif); font-weight: 700; }
   .prose p { margin: 0; line-height: 1.55; }
@@ -422,15 +438,15 @@
   @keyframes dot { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-7px); opacity: 1; } }
 
   .banner {
-    text-align: center; margin: 0 0 0.8rem; padding: 0.6rem 1rem; border-radius: 10px;
+    text-align: center; padding: 0.6rem 1rem; border-radius: 10px;
     font-family: var(--d-font-serif); font-weight: 700; color: var(--d-banner-text);
     background: var(--d-banner-bg);
     border: 2px solid var(--d-banner-border);
     box-shadow: 0 0 22px var(--d-banner-border);
-    animation: slide-in 0.4s ease-out;
+    animation: toast-in 0.4s ease-out;
   }
-  @keyframes slide-in { from { transform: translateY(-14px) scale(0.96); opacity: 0; } }
-  .error { text-align: center; margin: 0 0 0.8rem; padding: 0.5rem 1rem; border-radius: 10px; background: var(--d-error-bg); border: 2px solid var(--d-error-border); color: var(--d-error-text); }
+  @keyframes toast-in { from { transform: translate(-50%, -14px) scale(0.96); opacity: 0; } }
+  .error { text-align: center; padding: 0.5rem 1rem; border-radius: 10px; background: var(--d-error-bg); border: 2px solid var(--d-error-border); color: var(--d-error-text); }
 
   .controls { display: flex; gap: 1.4rem; justify-content: center; flex-wrap: wrap; margin-top: 1.6rem; }
   .ctl { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
@@ -454,4 +470,49 @@
   .result { font-size: clamp(1.6rem, 7vw, 2.6rem); margin: 0 0 0.6rem; line-height: 1.2; }
   .detail { font-family: var(--d-font-serif); font-style: italic; letter-spacing: 0.08em; margin: 0 0 0.8rem; }
   .final { display: flex; align-items: center; justify-content: center; gap: 0.7rem; font-family: var(--d-font-serif); font-weight: 900; font-size: 1.7rem; margin: 0 0 1.4rem; color: var(--d-option-box-text); }
+
+  /* ---- game layout: everything fits the window ---- */
+  .game {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    gap: 0.6rem;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
+    grid-template-areas: 'top' 'score' 'status' 'stage' 'controls' 'history';
+  }
+  .game > * { margin: 0; min-width: 0; }
+  .topbar { grid-area: top; }
+  .scoreboard { grid-area: score; }
+  .status { grid-area: status; }
+  .stage { grid-area: stage; min-height: 0; container-type: size; display: grid; place-items: center; }
+  .controls { grid-area: controls; }
+  .history { grid-area: history; }
+
+  /* Wide windows: the board on the left filling the height, everything else in a column on the right. */
+  @media (min-aspect-ratio: 5/4) {
+    .game {
+      gap: 0.7rem 1.6rem;
+      grid-template-columns: minmax(0, 1fr) clamp(15rem, 30vw, 21rem);
+      grid-template-rows: auto auto auto auto minmax(0, 1fr);
+      grid-template-areas: 'stage top' 'stage score' 'stage status' 'stage controls' 'stage history';
+    }
+    .scoreboard { grid-template-columns: 1fr; }
+    .controls { gap: 1rem; }
+    .history { overflow-y: auto; align-self: start; max-height: 100%; }
+  }
+  /* Short windows: drop the least important line to give the board room. */
+  @media (max-height: 640px) { .history { display: none; } }
+
+  /* Floating notices (pass banner, errors). */
+  .toast {
+    position: fixed;
+    top: calc(var(--edge-band) + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    margin: 0;
+    max-width: min(34rem, calc(100vw - 2 * var(--edge-band)));
+  }
+  .dialog { max-height: 92dvh; overflow-y: auto; }
 </style>
