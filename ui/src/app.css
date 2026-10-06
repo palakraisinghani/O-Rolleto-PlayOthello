@@ -1,0 +1,42 @@
+/* Plain functional styling (Phase A). The real design comes in Phase B. */
+:root {
+  color-scheme: light dark;
+  --bg: #f4f4f0;
+  --fg: #1b1b1b;
+  --board: #2a7d4f;
+  --line: #17402a;
+  --panel: #ffffff;
+  --accent: #1d5fd1;
+  font-family: system-ui, sans-serif;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #17191c;
+  --fg: #ececec;
+  --panel: #23262b;
+  --board: #1f6a42;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #17191c;
+    --fg: #ececec;
+    --panel: #23262b;
+    --board: #1f6a42;
+  }
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+}
+button {
+  font: inherit;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
