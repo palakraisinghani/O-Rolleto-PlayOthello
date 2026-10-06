@@ -2,7 +2,7 @@
 
 A desktop app for playing Othello (8×8) on your own machine, offline. Play the computer at four difficulty levels, or play a friend on the same computer. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); the four levels differ only in MCTS simulations, move temperature and root noise.
 
-> **Status: early development.** The Rust engine, baseline bots, UI-facing API, Tauri shell and a plain (unstyled) playable UI exist. Oroletto and the real design are not built yet. See [Roadmap](#roadmap).
+> **Status: early development.** The Rust engine, baseline bots, UI-facing API, Tauri shell and a playable, styled UI (Casino and Cafe modes) exist. Oroletto is not built yet. See [Roadmap](#roadmap).
 
 ## Planned stack
 
@@ -18,11 +18,12 @@ The UI never implements rules: it sends commands (`new_game`, `play`, `undo`, ..
 ```
 SPEC.md                    specification, decisions, milestones
 launch.sh                  launches the app in development mode
+design.md                  design tokens for the Casino and Cafe looks (edit to tune the UI)
 Cargo.toml                 Rust workspace
 core/                      Rust crate `othello-core`: engine, rules, history/undo, random + greedy bots
 api/                       Rust crate `othello-api`: the command/event API the UI talks to (see SPEC §4.3)
 app/                       Tauri shell: forwards UI commands to the API, engine events to the UI
-ui/                        Svelte + TypeScript front-end (currently a plain functional UI)
+ui/                        Svelte + TypeScript front-end (design-token driven; see design.md)
 LICENSE                    MIT
 requirements.txt           Python tooling dependencies (not needed to run the app)
 tools/make_golden.py       generates the golden test data from OthelloRL
@@ -70,6 +71,12 @@ With the Rust toolchain installed:
 cargo test      # engine + API tests, incl. the golden-file checks against OthelloRL
 ```
 
+## Tuning the look: `design.md`
+
+The app has two UI modes, **Casino** (night room, disco lights, neon, glossy lacquer; the default) and **Cafe** (calm daytime coffee-house: cream, espresso, light oak, soft string lights). Switch between them in Settings > Style or with the switch on the home screen.
+
+[`design.md`](design.md) holds every tunable value: room background, option boxes, buttons, scoreboard, board frame, bulbs, board squares, discs, disc flip/drop animations, hints, dialogs and confetti. Edit a value, save, and the running app reloads with it. Casino defines every token; the Cafe block lists only what differs from Casino. The build checks that tokens and code agree (a missing token fails the build, an unused one warns).
+
 ## Run the app (development)
 
 ```bash
@@ -85,7 +92,7 @@ The engine and API only need the Rust toolchain ([rustup](https://rustup.rs)). T
 ## Roadmap
 
 **Phase A: backend and API, with a plain UI:** M0 decisions → M1 Rust engine and baseline bots → M2 Tauri command/event API (frozen here) → M3 plain playable UI → M4 Oroletto and the four levels (needs the 8×8 model).
-**Phase B: design:** M5 mock-ups, visual design, animations, themes → M6 release.
+**Phase B: design:** M5 visual design (Casino and Cafe modes, animations; first pass done, tuned via `design.md`) → M6 release.
 Online play against a friend is a possible post-v1 feature. See [`SPEC.md`](SPEC.md) §9.
 
 ## Licence

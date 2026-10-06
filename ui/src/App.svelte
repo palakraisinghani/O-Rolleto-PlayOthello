@@ -2,6 +2,9 @@
   import { onMount } from 'svelte';
   import * as api from './lib/api';
   import type { GameEvent, HumanSide, Mode, Settings, Side, Snapshot } from './lib/api';
+  import Board from './lib/Board.svelte';
+  import Confetti from './lib/Confetti.svelte';
+  import Lights from './lib/Lights.svelte';
 
   type Screen = 'home' | 'setup-computer' | 'setup-two' | 'game' | 'settings' | 'help';
 
@@ -11,7 +14,7 @@
     show_legal_moves: true,
     animations: true,
     sound: true,
-    theme: 'system',
+    ui_mode: 'casino',
     default_difficulty: 2,
     default_human_side: 'black'
   });
@@ -117,8 +120,8 @@
 
   $effect(() => {
     const root = document.documentElement;
-    if (settings.theme === 'system') root.removeAttribute('data-theme');
-    else root.setAttribute('data-theme', settings.theme);
+    root.setAttribute('data-ui-mode', settings.ui_mode);
+    root.setAttribute('data-motion', settings.animations ? 'on' : 'off');
   });
 
   onMount(() => {
@@ -133,26 +136,61 @@
   });
 
   const over = $derived(snap?.status.state === 'over' ? snap.status : null);
-  const resultText = $derived.by(() => {
-    if (!over || !snap) return '';
-    if (over.winner === null) return 'Draw';
-    const who = playerName(over.winner);
-    return over.resigned ? `${who} wins by resignation` : `${who} wins`;
+  /** Confetti for a win, unless you lost to the computer. */
+  const celebrate = $derived(
+    !!over &&
+      over.winner !== null &&
+      !(snap?.mode.kind === 'vs_computer' && over.winner !== snap.mode.human)
+  );
+  const sideName = (side: Side) =>
+    (snap?.mode.kind === 'two_players' && (side === 'black' ? snap.mode.black_name : snap.mode.white_name)) || label(side);
+
+  /** Short neon headline for the result dialog, plus a detail line under it. */
+  const result = $derived.by(() => {
+    if (!over || !snap) return { headline: '', detail: '' };
+    if (over.winner === null) return { headline: 'Draw', detail: 'Honours even' };
+    if (snap.mode.kind === 'vs_computer') {
+      const won = over.winner === snap.mode.human;
+      return {
+        headline: won ? 'You win!' : 'Computer wins',
+        detail: over.resigned ? 'You resigned' : won ? 'Well played' : 'Better luck next hand'
+      };
+    }
+    return { headline: `${sideName(over.winner)} wins`, detail: over.resigned ? 'by resignation' : '' };
   });
 </script>
 
+<Lights />
+
 <main>
   {#if screen === 'home'}
-    <h1>Othello</h1>
-    <nav class="stack">
-      <button onclick={() => (screen = 'setup-computer')}>Play vs Computer</button>
-      <button onclick={() => (screen = 'setup-two')}>Two Players</button>
-      <button onclick={() => (screen = 'help')}>How to Play</button>
-      <button onclick={() => (screen = 'settings')}>Settings</button>
-    </nav>
+    <section class="home">
+      <div class="coin" aria-hidden="true">
+        <span class="coin-face black"></span>
+        <span class="coin-face white"></span>
+      </div>
+      <h1 class="neon logo">Othello</h1>
+      <p class="tagline">{settings.ui_mode === 'cafe' ? 'Slow down · One more game?' : 'Place your discs · Take the table'}</p>
+      <nav class="menu">
+        <button class="btn primary" onclick={() => (screen = 'setup-computer')}>Play vs Computer</button>
+        <button class="btn" onclick={() => (screen = 'setup-two')}>Two Players</button>
+        <button class="btn" onclick={() => (screen = 'help')}>How to Play</button>
+        <button class="btn" onclick={() => (screen = 'settings')}>Settings</button>
+      </nav>
+      <div class="modes" role="group" aria-label="Style">
+        {#each ['casino', 'cafe'] as const as mode}
+          <button
+            class="mode"
+            class:on={settings.ui_mode === mode}
+            aria-pressed={settings.ui_mode === mode}
+            onclick={() => { settings.ui_mode = mode; saveSettings(); }}
+          >{mode === 'casino' ? 'Casino' : 'Cafe'}</button>
+        {/each}
+      </div>
+    </section>
   {:else if screen === 'setup-computer'}
-    <h1>Play vs Computer</h1>
-    <form class="stack" onsubmit={(e) => { e.preventDefault(); startComputer(); }}>
+    <h1 class="neon title">Play vs Computer</h1>
+    <form class="plaque panel" onsubmit={(e) => { e.preventDefault(); startComputer(); }}>
       <label>Difficulty
         <select bind:value={difficulty}>
           {#each LEVELS as name, i}<option value={i + 1}>{i + 1} – {name}</option>{/each}
@@ -166,29 +204,32 @@
         </select>
       </label>
       <p class="muted">Board: 8×8</p>
-      <button type="submit">Start</button>
-      <button type="button" onclick={() => (screen = 'home')}>Back</button>
+      <div class="row">
+        <button type="submit" class="btn primary">Deal me in</button>
+        <button type="button" class="btn small" onclick={() => (screen = 'home')}>Back</button>
+      </div>
     </form>
   {:else if screen === 'setup-two'}
-    <h1>Two Players</h1>
-    <form class="stack" onsubmit={(e) => { e.preventDefault(); startTwo(); }}>
+    <h1 class="neon title">Two Players</h1>
+    <form class="plaque panel" onsubmit={(e) => { e.preventDefault(); startTwo(); }}>
       <label>Black <input bind:value={blackName} placeholder="Black" /></label>
       <label>White <input bind:value={whiteName} placeholder="White" /></label>
       <p class="muted">Board: 8×8</p>
-      <button type="submit">Start</button>
-      <button type="button" onclick={() => (screen = 'home')}>Back</button>
+      <div class="row">
+        <button type="submit" class="btn primary">Start</button>
+        <button type="button" class="btn small" onclick={() => (screen = 'home')}>Back</button>
+      </div>
     </form>
   {:else if screen === 'settings'}
-    <h1>Settings</h1>
-    <div class="stack">
-      <label><input type="checkbox" bind:checked={settings.show_legal_moves} onchange={saveSettings} /> Show legal moves</label>
-      <label><input type="checkbox" bind:checked={settings.animations} onchange={saveSettings} /> Animations</label>
-      <label><input type="checkbox" bind:checked={settings.sound} onchange={saveSettings} /> Sound effects</label>
-      <label>Theme
-        <select bind:value={settings.theme} onchange={saveSettings}>
-          <option value="system">System</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
+    <h1 class="neon title">Settings</h1>
+    <div class="plaque panel">
+      <label><span>Show legal moves</span><input type="checkbox" bind:checked={settings.show_legal_moves} onchange={saveSettings} /></label>
+      <label><span>Animations</span><input type="checkbox" bind:checked={settings.animations} onchange={saveSettings} /></label>
+      <label><span>Sound effects</span><input type="checkbox" bind:checked={settings.sound} onchange={saveSettings} /></label>
+      <label>Style
+        <select bind:value={settings.ui_mode} onchange={saveSettings}>
+          <option value="casino">Casino</option>
+          <option value="cafe">Cafe</option>
         </select>
       </label>
       <label>Default difficulty
@@ -203,67 +244,66 @@
           <option value="random">Random</option>
         </select>
       </label>
-      <button onclick={() => (screen = 'home')}>Back</button>
+      <div class="row"><button class="btn small" onclick={() => (screen = 'home')}>Back</button></div>
     </div>
   {:else if screen === 'help'}
-    <h1>How to Play</h1>
-    <div class="stack">
-      <p>Black moves first. Place a disc so that it traps one or more of your opponent's discs in a straight line (any direction) between the new disc and another of your own discs. Trapped discs flip to your colour.</p>
+    <h1 class="neon title">How to Play</h1>
+    <div class="plaque panel prose">
+      <p>Black moves first. Place a disc so that it traps one or more of your opponent's discs in a straight line (any direction) between the new disc and another of your own. Trapped discs flip to your colour.</p>
       <p>You must flip at least one disc. If you have no legal move you pass, and the other player plays again. The game ends when neither player can move or the board is full. Most discs wins.</p>
-      <button onclick={() => (screen = 'home')}>Back</button>
+      <div class="row"><button class="btn small" onclick={() => (screen = 'home')}>Back</button></div>
     </div>
   {:else if screen === 'game' && snap}
-    <header class="bar">
-      <button onclick={() => (screen = 'home')}>Home</button>
-      <span class="score">⚫ {snap.black_count} – {snap.white_count} ⚪</span>
-      <span>
-        {#if over}Game over
-        {:else if snap.awaiting === 'computer'}Computer is thinking…{#if thinking !== null} {Math.round(thinking * 100)}%{/if}
-        {:else}{playerName(snap.to_move)} to move{/if}
-      </span>
+    <header class="topbar">
+      <button class="btn small" onclick={() => (screen = 'home')}>Home</button>
+      <span class="neon mini">Othello</span>
     </header>
+
+    <section class="scoreboard" aria-label="Score">
+      {#each ['black', 'white'] as const as side}
+        <div class="player" class:active={!over && snap.to_move === side}>
+          <span class="chip {side}"></span>
+          <span class="who">{playerName(side)}</span>
+          {#key side === 'black' ? snap.black_count : snap.white_count}
+            <strong class="count">{side === 'black' ? snap.black_count : snap.white_count}</strong>
+          {/key}
+        </div>
+      {/each}
+    </section>
+
+    <p class="status" role="status" aria-live="polite">
+      {#if over}Game over
+      {:else if snap.awaiting === 'computer'}<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span> Computer is thinking{#if thinking !== null && thinking < 1} · {Math.round(thinking * 100)}%{/if}
+      {:else}{playerName(snap.to_move)} to move{/if}
+    </p>
 
     {#if banner}<p class="banner" role="status">{banner}</p>{/if}
     {#if error}<p class="error" role="alert">{error}</p>{/if}
 
-    <div class="board" role="grid" aria-label="Othello board">
-      {#each snap.board as cell, i}
-        {@const legal = settings.show_legal_moves && snap.legal.includes(i)}
-        <button
-          class="cell"
-          class:last={snap.last_move === i}
-          class:hint={hintSquare === i}
-          class:flipped={settings.animations && snap.flipped.includes(i)}
-          disabled={!snap.legal.includes(i)}
-          onclick={() => onSquare(i)}
-          aria-label={`${api.squareName(i)}${cell === 1 ? ', black' : cell === 2 ? ', white' : ''}`}
-        >
-          {#if cell}<span class="disc {cell === 1 ? 'black' : 'white'}"></span>
-          {:else if legal}<span class="dot"></span>{/if}
-        </button>
-      {/each}
-    </div>
+    <Board {snap} showLegal={settings.show_legal_moves} {hintSquare} onSquare={onSquare} />
 
-    <div class="bar controls">
-      <button onclick={doUndo} disabled={!snap.can_undo}>Undo</button>
+    <div class="controls">
+      <button class="btn small" onclick={doUndo} disabled={!snap.can_undo}>Undo</button>
       {#if snap.mode.kind === 'vs_computer'}
-        <button onclick={doHint} disabled={snap.awaiting !== 'human'}>Hint</button>
+        <button class="btn small" onclick={doHint} disabled={snap.awaiting !== 'human'}>Hint</button>
       {/if}
-      <button onclick={doResign} disabled={!!over}>Resign</button>
-      <button onclick={() => rematch(false)}>New game</button>
+      <button class="btn small" onclick={doResign} disabled={!!over}>Resign</button>
+      <button class="btn small primary" onclick={() => rematch(false)}>New game</button>
     </div>
 
-    <p class="muted history">{snap.history.join(' ')}</p>
+    <p class="history">{snap.history.join(' · ')}</p>
 
     {#if over}
+      {#if celebrate}<Confetti />{/if}
       <div class="overlay">
-        <div class="dialog" role="dialog" aria-label="Game result">
-          <h2>{resultText}</h2>
-          <p>⚫ {snap.black_count} – {snap.white_count} ⚪</p>
-          <div class="bar">
-            <button onclick={() => rematch(false)}>Rematch</button>
-            <button onclick={() => rematch(true)}>Swap colours</button>
-            <button onclick={() => (screen = 'home')}>Home</button>
+        <div class="plaque dialog" role="dialog" aria-label="Game result">
+          <h2 class="neon result">{result.headline}</h2>
+          {#if result.detail}<p class="detail">{result.detail}</p>{/if}
+          <p class="final"><span class="chip black"></span> {snap.black_count} – {snap.white_count} <span class="chip white"></span></p>
+          <div class="row">
+            <button class="btn primary" onclick={() => rematch(false)}>Rematch</button>
+            <button class="btn" onclick={() => rematch(true)}>Swap colours</button>
+            <button class="btn" onclick={() => (screen = 'home')}>Home</button>
           </div>
         </div>
       </div>
@@ -272,48 +312,125 @@
 </main>
 
 <style>
-  main { max-width: 34rem; margin: 0 auto; padding: 1rem; }
-  h1 { text-align: center; }
-  .stack { display: flex; flex-direction: column; gap: 0.7rem; }
-  label { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
-  .muted { opacity: 0.65; margin: 0; }
-  .bar { display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin: 0.6rem 0; }
-  .controls { justify-content: center; }
-  .score { font-weight: 600; }
-  .banner { background: #ffe9a8; color: #3a2e00; padding: 0.5rem 0.8rem; border-radius: 6px; }
-  .error { background: #ffd0d0; color: #5b0000; padding: 0.5rem 0.8rem; border-radius: 6px; }
-  .history { word-break: break-word; font-size: 0.85rem; }
-
-  .board {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 2px;
-    background: var(--line);
-    padding: 2px;
-    aspect-ratio: 1;
-    width: 100%;
+  main {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 1rem 1rem 2rem;
+    min-height: 100vh;
   }
-  .cell {
-    background: var(--board);
-    border: none;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-  }
-  .cell:not(:disabled):hover { filter: brightness(1.2); }
-  .cell:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
-  .cell.last { box-shadow: inset 0 0 0 3px #f5c542; }
-  .cell.hint { box-shadow: inset 0 0 0 4px #4aa3ff; }
-  .disc { width: 78%; height: 78%; border-radius: 50%; border: 2px solid rgba(0, 0, 0, 0.55); }
-  .disc.black { background: #111; }
-  .disc.white { background: #f2f2f2; }
-  .cell.flipped .disc { animation: flip 0.35s ease; }
-  @keyframes flip { from { transform: scaleX(0.1); } to { transform: scaleX(1); } }
-  /* Hints are outlined rings, not colour alone */
-  .dot { width: 26%; height: 26%; border-radius: 50%; border: 3px solid rgba(255, 255, 255, 0.8); }
+  .muted { opacity: 0.7; margin: 0; color: var(--d-ink-dim); }
+  .row { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; margin-top: 0.4rem; }
 
-  .overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; }
-  .dialog { background: var(--panel); padding: 1.5rem 2rem; border-radius: 10px; text-align: center; }
+  /* ---- home ---- */
+  .home { display: flex; flex-direction: column; align-items: center; padding-top: 4vh; }
+  .logo { font-size: clamp(3rem, 14vw, 6.5rem); margin: 0.2em 0 0; text-align: center; line-height: 1.05; }
+  .tagline {
+    font-family: var(--d-font-serif);
+    font-style: italic;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    color: var(--d-ink-dim);
+    margin: 0.4rem 0 2rem;
+    text-align: center;
+  }
+  .menu { display: flex; flex-direction: column; gap: 1.1rem; width: min(100%, 20rem); }
+  .modes { display: flex; gap: 0.4rem; margin-top: 2rem; padding: 0.3rem; border-radius: 999px; background: var(--d-scoreboard-bg); border: 2px solid var(--d-scoreboard-border); }
+  .mode {
+    font-family: var(--d-font-serif); font-weight: 700; font-size: 0.9rem; letter-spacing: 0.06em;
+    padding: 0.4rem 1.2rem; border: none; border-radius: 999px; cursor: pointer;
+    background: transparent; color: var(--d-ink-dim);
+    transition: background 0.25s, color 0.25s, box-shadow 0.25s;
+  }
+  .mode.on { background: var(--d-button-primary-bg); color: var(--d-button-primary-text); box-shadow: 0 0 14px color-mix(in srgb, var(--d-button-primary-glow) 60%, transparent); }
+  .mode:focus-visible { outline: 3px solid var(--d-neon-yellow); outline-offset: 2px; }
+  .coin { position: relative; width: 96px; height: 96px; transform-style: preserve-3d; animation: coin-spin 4.5s linear infinite; }
+  .coin-face {
+    position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden;
+    box-shadow: 0 0 28px var(--d-sign-glow), 0 8px 18px rgba(0, 0, 0, 0.6);
+  }
+  .coin-face.black { background: var(--d-disc-black-bg); border: 3px solid var(--d-disc-black-rim); }
+  .coin-face.white { transform: rotateY(180deg); background: var(--d-disc-white-bg); border: 3px solid var(--d-disc-white-rim); }
+  @keyframes coin-spin { to { transform: rotateY(360deg); } }
+
+  /* ---- sub-screens ---- */
+  .title { font-size: clamp(1.8rem, 8vw, 3rem); text-align: center; margin: 1.2rem 0 1.4rem; }
+  .panel { display: flex; flex-direction: column; gap: 1rem; padding: 1.6rem; }
+  .panel label { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-family: var(--d-font-serif); font-weight: 700; }
+  .prose p { margin: 0; line-height: 1.55; }
+
+  /* ---- game ---- */
+  .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
+  .mini { font-size: 1.6rem; }
+  .scoreboard { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 0.6rem; }
+  .player {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.6rem;
+    padding: 0.55rem 0.9rem;
+    border-radius: 14px;
+    background: var(--d-scoreboard-bg);
+    border: 2px solid var(--d-scoreboard-border);
+    transition: box-shadow 0.3s, border-color 0.3s, transform 0.3s;
+  }
+  .player.active {
+    border-color: var(--d-scoreboard-active-border);
+    transform: translateY(-2px);
+    box-shadow: 0 0 22px var(--d-scoreboard-active-glow), 0 0 40px color-mix(in srgb, var(--d-neon-pink) 60%, transparent);
+    animation: pulse-border var(--d-scoreboard-pulse-duration) ease-in-out infinite alternate;
+  }
+  @keyframes pulse-border {
+    to {
+      box-shadow: 0 0 34px var(--d-scoreboard-active-glow-alt), 0 0 60px color-mix(in srgb, var(--d-neon-purple) 70%, transparent);
+      border-color: var(--d-scoreboard-active-glow-alt);
+    }
+  }
+  .chip { width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6); }
+  .chip.black { background: var(--d-disc-black-bg); border: 2px solid var(--d-disc-black-rim); outline: 1px solid rgba(255, 255, 255, 0.35); }
+  .chip.white { background: var(--d-disc-white-bg); border: 2px solid var(--d-disc-white-rim); }
+  .who { font-family: var(--d-font-serif); font-weight: 700; font-size: 0.95rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--d-ink); }
+  .count {
+    font-family: var(--d-font-serif); font-size: 1.9rem; font-weight: 900;
+    color: var(--d-scoreboard-count-color);
+    text-shadow: 0 0 10px var(--d-scoreboard-count-glow), 0 0 22px var(--d-scoreboard-count-glow-far);
+    animation: bump 0.4s ease-out;
+  }
+  @keyframes bump { 0% { transform: scale(1.7); color: var(--d-neon-yellow); } 100% { transform: scale(1); } }
+
+  .status { text-align: center; margin: 0.4rem 0 0.8rem; font-family: var(--d-font-serif); font-weight: 700; letter-spacing: 0.05em; min-height: 1.5em; color: var(--d-ink); }
+  .dots { display: inline-flex; gap: 4px; vertical-align: middle; margin-right: 0.3rem; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--d-neon-pink); animation: dot 1s ease-in-out infinite; }
+  .dots i:nth-child(2) { background: var(--d-neon-cyan); animation-delay: 0.15s; }
+  .dots i:nth-child(3) { background: var(--d-neon-yellow); animation-delay: 0.3s; }
+  @keyframes dot { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(-7px); opacity: 1; } }
+
+  .banner {
+    text-align: center; margin: 0 0 0.8rem; padding: 0.6rem 1rem; border-radius: 10px;
+    font-family: var(--d-font-serif); font-weight: 700; color: var(--d-banner-text);
+    background: var(--d-banner-bg);
+    border: 2px solid var(--d-banner-border);
+    box-shadow: 0 0 22px var(--d-banner-border);
+    animation: slide-in 0.4s ease-out;
+  }
+  @keyframes slide-in { from { transform: translateY(-14px) scale(0.96); opacity: 0; } }
+  .error { text-align: center; margin: 0 0 0.8rem; padding: 0.5rem 1rem; border-radius: 10px; background: var(--d-error-bg); border: 2px solid var(--d-error-border); color: var(--d-error-text); }
+
+  .controls { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; }
+  .history { text-align: center; color: var(--d-ink-dim); font-size: 0.85rem; line-height: 1.5; margin-top: 1rem; word-break: break-word; }
+
+  /* ---- result ---- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 1rem;
+    background: var(--d-overlay-bg);
+    backdrop-filter: blur(var(--d-overlay-blur));
+    animation: fade-in 0.3s ease-out;
+  }
+  @keyframes fade-in { from { opacity: 0; } }
+  .dialog {
+    background: var(--d-dialog-bg);
+    padding: 2rem 2.2rem; text-align: center; max-width: 30rem;
+    animation: pop 0.5s cubic-bezier(0.2, 1.5, 0.5, 1);
+  }
+  @keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+  .result { font-size: clamp(1.6rem, 7vw, 2.6rem); margin: 0 0 0.6rem; line-height: 1.2; }
+  .detail { font-family: var(--d-font-serif); font-style: italic; letter-spacing: 0.08em; margin: 0 0 0.8rem; }
+  .final { display: flex; align-items: center; justify-content: center; gap: 0.7rem; font-family: var(--d-font-serif); font-weight: 900; font-size: 1.7rem; margin: 0 0 1.4rem; color: var(--d-option-box-text); }
 </style>

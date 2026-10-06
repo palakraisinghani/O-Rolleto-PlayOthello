@@ -1,42 +1,147 @@
-/* Plain functional styling (Phase A). The real design comes in Phase B. */
+/* Othello Player: casino night.
+   Every colour, texture and timing comes from a design token (--d-*) defined in the
+   repo-root design.md and injected by design-plugin.ts. The UI mode (casino or cafe) is
+   the data-ui-mode attribute on <html>. Edit design.md, not this file, to tune the look. Motion respects Settings > Animations (data-motion="off") and
+   prefers-reduced-motion. */
+
 :root {
-  color-scheme: light dark;
-  --bg: #f4f4f0;
-  --fg: #1b1b1b;
-  --board: #2a7d4f;
-  --line: #17402a;
-  --panel: #ffffff;
-  --accent: #1d5fd1;
-  font-family: system-ui, sans-serif;
-}
-:root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #17191c;
-  --fg: #ececec;
-  --panel: #23262b;
-  --board: #1f6a42;
+  font-family: var(--d-font-ui);
 }
-:root[data-theme='light'] {
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --bg: #17191c;
-    --fg: #ececec;
-    --panel: #23262b;
-    --board: #1f6a42;
-  }
-}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--d-main-bg);
+  color: var(--d-ink);
+  overflow-x: hidden;
 }
-button {
-  font: inherit;
-  padding: 0.45rem 0.9rem;
+
+#app { min-height: 100%; }
+
+/* ------------------------------------------------------------ shared pieces */
+
+/* Neon sign text: the tube colour cycles through the palette and flickers. */
+.neon {
+  font-family: var(--d-font-display);
+  font-weight: var(--d-sign-weight);
+  letter-spacing: var(--d-sign-letter-spacing);
+  color: var(--d-sign-core);
+  text-shadow:
+    0 0 6px var(--d-sign-core),
+    0 0 14px var(--d-sign-glow),
+    0 0 30px var(--d-sign-glow),
+    0 0 60px var(--d-sign-glow-far);
+  animation:
+    neon-cycle var(--d-sign-hue-cycle-duration) linear infinite,
+    neon-flicker var(--d-sign-flicker-duration) infinite;
+}
+
+/* Buttons: black lacquer with an animated neon edge; .primary is ivory.
+   The edge is a second gradient painted under the border box. */
+button.btn {
+  --lacquer: var(--d-button-bg);
+  --lip: var(--d-button-lip);
+  --glow: color-mix(in srgb, var(--d-button-glow) 55%, transparent);
+  font-family: var(--d-font-serif);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  color: var(--d-button-text);
+  border: 2px solid transparent;
+  border-radius: var(--d-button-radius);
+  padding: 0.7rem 1.6rem;
   cursor: pointer;
+  background: var(--lacquer) padding-box, var(--d-button-edge) border-box;
+  background-size: auto, 300% 100%;
+  animation: edge-slide var(--d-button-edge-duration) linear infinite;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.6),
+    0 4px 0 var(--lip),
+    0 8px 18px rgba(0, 0, 0, 0.5),
+    0 0 14px var(--glow);
+  transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
-button:disabled {
-  cursor: default;
+button.btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  filter: brightness(1.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.6),
+    0 6px 0 var(--lip),
+    0 12px 22px rgba(0, 0, 0, 0.55),
+    0 0 26px color-mix(in srgb, var(--d-button-hover-glow) 70%, transparent);
+}
+button.btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.7), 0 1px 0 var(--lip), 0 0 12px var(--glow);
+}
+button.btn:focus-visible { outline: 3px solid var(--d-neon-yellow); outline-offset: 4px; }
+button.btn:disabled { opacity: 0.4; cursor: default; filter: grayscale(0.6); animation: none; }
+button.btn.primary {
+  --lacquer: var(--d-button-primary-bg);
+  --lip: var(--d-button-primary-lip);
+  --glow: color-mix(in srgb, var(--d-button-primary-glow) 65%, transparent);
+  color: var(--d-button-primary-text);
+}
+button.btn.small { font-size: 0.9rem; padding: 0.45rem 1rem; }
+
+/* Option box: the wooden plaque behind setup, settings and rules. */
+.plaque {
+  background: var(--d-option-box-bg);
+  color: var(--d-option-box-text);
+  border: 2px solid var(--d-option-box-border);
+  border-radius: var(--d-option-box-radius);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -4px 10px rgba(0, 0, 0, 0.5),
+    0 14px 34px rgba(0, 0, 0, 0.55);
+}
+
+select, input[type='text'], input:not([type]) {
+  font: inherit;
+  color: var(--d-input-text);
+  background: var(--d-input-bg);
+  border: 2px solid color-mix(in srgb, var(--d-input-border) 60%, transparent);
+  border-radius: 10px;
+  padding: 0.45rem 0.7rem;
+}
+select:focus-visible, input:focus-visible { outline: 3px solid var(--d-neon-yellow); outline-offset: 2px; }
+input[type='checkbox'] { width: 1.2rem; height: 1.2rem; accent-color: var(--d-checkbox-color); }
+
+/* ---------------------------------------------------------------- keyframes */
+
+@keyframes neon-cycle {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+@keyframes neon-flicker {
+  0%, 18%, 22%, 25%, 53%, 57%, 100% { opacity: 1; }
+  20%, 24%, 55% { opacity: 0.72; }
+}
+@keyframes edge-slide {
+  to { background-position: 0 0, 300% 0; }
+}
+@keyframes pulse-glow {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.18); opacity: 1; }
+}
+
+/* ------------------------------------------------------------------- motion */
+
+:root[data-motion='off'] *,
+:root[data-motion='off'] *::before,
+:root[data-motion='off'] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
