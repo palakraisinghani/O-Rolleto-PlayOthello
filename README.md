@@ -2,7 +2,7 @@
 
 A desktop app for playing Othello (8×8) on your own machine, offline. Play the computer at four difficulty levels, or play a friend on the same computer. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); the four levels differ only in MCTS simulations, move temperature and root noise.
 
-> **Status: early development.** The Rust game engine, baseline bots and the UI-facing API (`core/`, `api/`) are done and tested. Oroletto, the Tauri app and the UI are not built yet. See [Roadmap](#roadmap).
+> **Status: early development.** The Rust engine, baseline bots, UI-facing API, Tauri shell and a plain (unstyled) playable UI exist. Oroletto and the real design are not built yet. See [Roadmap](#roadmap).
 
 ## Planned stack
 
@@ -20,13 +20,15 @@ SPEC.md                    specification, decisions, milestones
 Cargo.toml                 Rust workspace
 core/                      Rust crate `othello-core`: engine, rules, history/undo, random + greedy bots
 api/                       Rust crate `othello-api`: the command/event API the UI talks to (see SPEC §4.3)
+app/                       Tauri shell: forwards UI commands to the API, engine events to the UI
+ui/                        Svelte + TypeScript front-end (currently a plain functional UI)
 LICENSE                    MIT
 requirements.txt           Python tooling dependencies (not needed to run the app)
 tools/make_golden.py       generates the golden test data from OthelloRL
 tests/golden/              reference data the Rust engine is tested against
 ```
 
-Planned (not yet created): MCTS and Oroletto in `core/`, `app/` (Tauri shell), `ui/` (Svelte front-end), `models/` (Oroletto ONNX + manifest).
+Planned (not yet created): MCTS and Oroletto in `core/`, ``models/` (Oroletto ONNX + manifest).
 
 ## Conventions
 
@@ -67,9 +69,18 @@ With the Rust toolchain installed:
 cargo test      # engine + API tests, incl. the golden-file checks against OthelloRL
 ```
 
-## Build prerequisites (planned, for the app)
+## Run the app (development)
 
-The engine only needs the Rust toolchain ([rustup](https://rustup.rs)). The app will also need Node.js. On Linux you also need the WebView libraries (`sudo apt install libwebkit2gtk-4.1-dev` and friends). Exact build instructions will be added with the first buildable release.
+```bash
+cd ui && npm install && cd ..        # once
+cd app && npx --prefix ../ui tauri dev
+```
+
+This starts the Vite dev server and opens the app window; edits to `ui/` reload live, edits to Rust code rebuild.
+
+## Build prerequisites (for the app)
+
+The engine and API only need the Rust toolchain ([rustup](https://rustup.rs)). The app also needs Node.js (an LTS release; [nvm](https://github.com/nvm-sh/nvm) works without sudo). On Linux you also need the Tauri system libraries: `sudo apt install libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev` (see the [Tauri prerequisites](https://tauri.app/start/prerequisites/)). Release packaging instructions will be added with M6.
 
 ## Roadmap
 
