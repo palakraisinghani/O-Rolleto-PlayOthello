@@ -1,18 +1,16 @@
-<!-- The room: mahogany wood wall, a warm lamp glow, slow coloured light washes and a golden
-     glint sweeping across the grain, with a vignette. All values come from design.md (sections 1, 2). -->
-<div class="lights" aria-hidden="true">
+<!-- The room: just the mahogany wood, plus the RGB border lighting. The border light is a thin
+     conic-gradient ring blurred into a glow (and a wider faint halo); only the glow is visible.
+     The blur sits on the wrapper because CSS applies masks after filters, so blurring the masked
+     ring itself would leave a hard edge. Values come from design.md (sections 2, 3). -->
+<div class="room" aria-hidden="true">
   <div class="wood"></div>
   <div class="tint"></div>
-  <div class="lamp"></div>
-  <div class="blob b1"></div>
-  <div class="blob b2"></div>
-  <div class="blob b3"></div>
-  <div class="glint"></div>
-  <div class="vignette"></div>
+  <div class="edge halo"><i class="ring"></i></div>
+  <div class="edge glow"><i class="ring"></i></div>
 </div>
 
 <style>
-  .lights {
+  .room {
     position: fixed;
     inset: 0;
     z-index: -1;
@@ -20,38 +18,27 @@
     background: var(--d-main-bg);
     pointer-events: none;
   }
-  .wood, .tint, .lamp, .vignette { position: absolute; inset: 0; }
+  .wood, .tint, .edge { position: absolute; inset: 0; }
   .wood { background: var(--d-main-bg-image); }
   .tint { background: var(--d-main-bg-tint); }
-  .lamp { background: radial-gradient(ellipse at 50% 8%, var(--d-main-bg-glow), transparent 62%); }
-  .vignette { background: radial-gradient(ellipse at center, transparent 42%, var(--d-vignette-color) 100%); }
 
-  .blob {
-    position: absolute;
-    width: 55vmax;
-    height: 55vmax;
-    border-radius: 50%;
-    filter: blur(var(--d-blobs-blur));
-    opacity: var(--d-blobs-opacity);
-    mix-blend-mode: var(--d-blobs-blend);
-    will-change: transform;
-  }
-  .b1 { background: var(--d-neon-pink); top: -22vmax; left: -22vmax; animation: drift1 calc(22s * var(--d-blobs-drift-slowness)) ease-in-out infinite alternate; }
-  .b2 { background: var(--d-neon-cyan); top: 12vmax; right: -30vmax; opacity: calc(var(--d-blobs-opacity) * 0.75); animation: drift2 calc(27s * var(--d-blobs-drift-slowness)) ease-in-out infinite alternate; }
-  .b3 { background: var(--d-neon-purple); bottom: -30vmax; left: 8vmax; animation: drift3 calc(31s * var(--d-blobs-drift-slowness)) ease-in-out infinite alternate; }
-
-  /* A slow golden reflection crossing the polished wood. */
-  .glint {
-    position: absolute;
-    inset: -30%;
-    background: linear-gradient(105deg, transparent 42%, var(--d-glint-color) 50%, transparent 58%);
-    opacity: var(--d-glint-opacity);
-    mix-blend-mode: screen;
-    animation: sweep var(--d-glint-duration) ease-in-out infinite;
+  .edge { mix-blend-mode: screen; opacity: var(--d-border-light-opacity); }
+  .edge.glow { filter: blur(var(--d-border-light-glow)); }
+  .edge.halo {
+    filter: blur(var(--d-border-light-halo));
+    opacity: calc(var(--d-border-light-opacity) * var(--d-border-light-halo-opacity));
   }
 
-  @keyframes sweep { 0% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
-  @keyframes drift1 { to { transform: translate(35vmax, 22vmax) scale(1.2); } }
-  @keyframes drift2 { to { transform: translate(-40vmax, 30vmax) scale(0.85); } }
-  @keyframes drift3 { to { transform: translate(30vmax, -26vmax) scale(1.15); } }
+  /* A ring around the window's edge, painted with a conic gradient whose start angle spins. */
+  .ring {
+    position: absolute;
+    inset: 0;
+    padding: var(--d-border-light-width);
+    background: conic-gradient(from var(--edge-angle), var(--d-border-light-pattern));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    animation: edge-spin var(--d-border-light-spin-duration) linear infinite;
+  }
 </style>
