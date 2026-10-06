@@ -11,5 +11,5 @@ mod types;
 
 pub use engine::{standin_engines, Engine, EngineFactory, SearchControl};
 pub use session::{Session, Sink};
-pub use settings::{Settings, UiMode};
+pub use settings::Settings;
 pub use types::{ApiError, Awaiting, Event, HumanSide, Mode, Side, Snapshot, Status};

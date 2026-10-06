@@ -3,7 +3,9 @@
   import * as api from './lib/api';
   import type { GameEvent, HumanSide, Mode, Settings, Side, Snapshot } from './lib/api';
   import Board from './lib/Board.svelte';
-  import Confetti from './lib/Confetti.svelte';
+  import ChipRain from './lib/ChipRain.svelte';
+  import ChipSplash from './lib/ChipSplash.svelte';
+  import Icon from './lib/Icon.svelte';
   import Lights from './lib/Lights.svelte';
 
   type Screen = 'home' | 'setup-computer' | 'setup-two' | 'game' | 'settings' | 'help';
@@ -14,7 +16,6 @@
     show_legal_moves: true,
     animations: true,
     sound: true,
-    ui_mode: 'casino',
     default_difficulty: 2,
     default_human_side: 'black'
   });
@@ -22,6 +23,9 @@
   let thinking = $state<number | null>(null);
   let hintSquare = $state<number | null>(null);
   let error = $state('');
+  /** Incremented at the start of every game to (re)play the opening chip splash. */
+  let splashKey = $state(0);
+  let splashing = $state(false);
 
   // Setup form
   let difficulty = $state(2);
@@ -73,6 +77,10 @@
     if (s) {
       snap = s;
       screen = 'game';
+      if (settings.animations) {
+        splashKey += 1;
+        splashing = true;
+      }
     }
   }
 
@@ -120,7 +128,6 @@
 
   $effect(() => {
     const root = document.documentElement;
-    root.setAttribute('data-ui-mode', settings.ui_mode);
     root.setAttribute('data-motion', settings.animations ? 'on' : 'off');
   });
 
@@ -136,7 +143,7 @@
   });
 
   const over = $derived(snap?.status.state === 'over' ? snap.status : null);
-  /** Confetti for a win, unless you lost to the computer. */
+  /** Chip rain for a win, unless you lost to the computer. */
   const celebrate = $derived(
     !!over &&
       over.winner !== null &&
@@ -165,28 +172,22 @@
 <main>
   {#if screen === 'home'}
     <section class="home">
-      <div class="coin" aria-hidden="true">
-        <span class="coin-face black"></span>
-        <span class="coin-face white"></span>
+      <div class="hero" aria-hidden="true">
+        <div class="wheel"><i class="ball"></i></div>
+        <div class="hub"></div>
+        <div class="coin">
+          <span class="coin-face black"></span>
+          <span class="coin-face white"></span>
+        </div>
       </div>
       <h1 class="neon logo">Othello</h1>
-      <p class="tagline">{settings.ui_mode === 'cafe' ? 'Slow down · One more game?' : 'Place your discs · Take the table'}</p>
+      <p class="tagline">Place your discs · Take the table</p>
       <nav class="menu">
         <button class="btn primary" onclick={() => (screen = 'setup-computer')}>Play vs Computer</button>
         <button class="btn" onclick={() => (screen = 'setup-two')}>Two Players</button>
         <button class="btn" onclick={() => (screen = 'help')}>How to Play</button>
         <button class="btn" onclick={() => (screen = 'settings')}>Settings</button>
       </nav>
-      <div class="modes" role="group" aria-label="Style">
-        {#each ['casino', 'cafe'] as const as mode}
-          <button
-            class="mode"
-            class:on={settings.ui_mode === mode}
-            aria-pressed={settings.ui_mode === mode}
-            onclick={() => { settings.ui_mode = mode; saveSettings(); }}
-          >{mode === 'casino' ? 'Casino' : 'Cafe'}</button>
-        {/each}
-      </div>
     </section>
   {:else if screen === 'setup-computer'}
     <h1 class="neon title">Play vs Computer</h1>
@@ -226,12 +227,6 @@
       <label><span>Show legal moves</span><input type="checkbox" bind:checked={settings.show_legal_moves} onchange={saveSettings} /></label>
       <label><span>Animations</span><input type="checkbox" bind:checked={settings.animations} onchange={saveSettings} /></label>
       <label><span>Sound effects</span><input type="checkbox" bind:checked={settings.sound} onchange={saveSettings} /></label>
-      <label>Style
-        <select bind:value={settings.ui_mode} onchange={saveSettings}>
-          <option value="casino">Casino</option>
-          <option value="cafe">Cafe</option>
-        </select>
-      </label>
       <label>Default difficulty
         <select bind:value={settings.default_difficulty} onchange={saveSettings}>
           {#each LEVELS as name, i}<option value={i + 1}>{i + 1} – {name}</option>{/each}
@@ -255,7 +250,7 @@
     </div>
   {:else if screen === 'game' && snap}
     <header class="topbar">
-      <button class="btn small" onclick={() => (screen = 'home')}>Home</button>
+      <button class="btn icon" onclick={() => (screen = 'home')} aria-label="Home"><Icon name="home" /></button>
       <span class="neon mini">Othello</span>
     </header>
 
@@ -283,18 +278,30 @@
     <Board {snap} showLegal={settings.show_legal_moves} {hintSquare} onSquare={onSquare} />
 
     <div class="controls">
-      <button class="btn small" onclick={doUndo} disabled={!snap.can_undo}>Undo</button>
+      <div class="ctl">
+        <button class="btn icon" onclick={doUndo} disabled={!snap.can_undo} aria-label="Undo"><Icon name="undo" /></button>
+        <span>Undo</span>
+      </div>
       {#if snap.mode.kind === 'vs_computer'}
-        <button class="btn small" onclick={doHint} disabled={snap.awaiting !== 'human'}>Hint</button>
+        <div class="ctl">
+          <button class="btn icon" onclick={doHint} disabled={snap.awaiting !== 'human'} aria-label="Hint"><Icon name="hint" /></button>
+          <span>Hint</span>
+        </div>
       {/if}
-      <button class="btn small" onclick={doResign} disabled={!!over}>Resign</button>
-      <button class="btn small primary" onclick={() => rematch(false)}>New game</button>
+      <div class="ctl">
+        <button class="btn icon" onclick={doResign} disabled={!!over} aria-label="Resign"><Icon name="resign" /></button>
+        <span>Resign</span>
+      </div>
+      <div class="ctl">
+        <button class="btn icon primary" onclick={() => rematch(false)} aria-label="New game"><Icon name="new" /></button>
+        <span>New game</span>
+      </div>
     </div>
 
     <p class="history">{snap.history.join(' · ')}</p>
 
     {#if over}
-      {#if celebrate}<Confetti />{/if}
+      {#if celebrate && settings.animations}<ChipRain />{/if}
       <div class="overlay">
         <div class="plaque dialog" role="dialog" aria-label="Game result">
           <h2 class="neon result">{result.headline}</h2>
@@ -310,6 +317,10 @@
     {/if}
   {/if}
 </main>
+
+{#if splashing}
+  {#key splashKey}<ChipSplash ondone={() => (splashing = false)} />{/key}
+{/if}
 
 <style>
   main {
@@ -335,23 +346,31 @@
     text-align: center;
   }
   .menu { display: flex; flex-direction: column; gap: 1.1rem; width: min(100%, 20rem); }
-  .modes { display: flex; gap: 0.4rem; margin-top: 2rem; padding: 0.3rem; border-radius: 999px; background: var(--d-scoreboard-bg); border: 2px solid var(--d-scoreboard-border); }
-  .mode {
-    font-family: var(--d-font-serif); font-weight: 700; font-size: 0.9rem; letter-spacing: 0.06em;
-    padding: 0.4rem 1.2rem; border: none; border-radius: 999px; cursor: pointer;
-    background: transparent; color: var(--d-ink-dim);
-    transition: background 0.25s, color 0.25s, box-shadow 0.25s;
+  /* Hero: a slow roulette wheel with the black/white coin spinning on its hub. */
+  .hero { position: relative; width: var(--d-wheel-size); height: var(--d-wheel-size); display: grid; place-items: center; margin-bottom: 0.4rem; }
+  .wheel {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: repeating-conic-gradient(var(--d-wheel-red) 0 15deg, var(--d-wheel-black) 15deg 30deg);
+    border: 7px ridge var(--d-brass);
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.55), 0 10px 26px rgba(0, 0, 0, 0.65), 0 0 40px color-mix(in srgb, var(--d-brass-light) 40%, transparent), inset 0 0 22px rgba(0, 0, 0, 0.7);
+    animation: wheel-spin var(--d-wheel-spin-duration) linear infinite;
   }
-  .mode.on { background: var(--d-button-primary-bg); color: var(--d-button-primary-text); box-shadow: 0 0 14px color-mix(in srgb, var(--d-button-primary-glow) 60%, transparent); }
-  .mode:focus-visible { outline: 3px solid var(--d-neon-yellow); outline-offset: 2px; }
-  .coin { position: relative; width: 96px; height: 96px; transform-style: preserve-3d; animation: coin-spin 4.5s linear infinite; }
+  .wheel::before { /* gilt ring between the pockets and the hub */
+    content: ''; position: absolute; inset: 16%; border-radius: 50%;
+    background: var(--d-brass-gradient); background-size: 300% 100%;
+    box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 0, 0, 0.6);
+  }
+  .ball { position: absolute; left: 50%; top: 4%; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #bbb); box-shadow: 0 1px 3px #000; }
+  .hub { position: absolute; width: 44%; height: 44%; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f7e6a8, #b98a35 55%, #5e4313); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.7), inset 0 0 0 3px rgba(0, 0, 0, 0.3); }
+  .coin { position: relative; width: 30%; height: 30%; transform-style: preserve-3d; animation: coin-spin 4.5s linear infinite; }
   .coin-face {
     position: absolute; inset: 0; border-radius: 50%; backface-visibility: hidden;
-    box-shadow: 0 0 28px var(--d-sign-glow), 0 8px 18px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 0 16px var(--d-brass-light), 0 4px 10px rgba(0, 0, 0, 0.6);
   }
-  .coin-face.black { background: var(--d-disc-black-bg); border: 3px solid var(--d-disc-black-rim); }
-  .coin-face.white { transform: rotateY(180deg); background: var(--d-disc-white-bg); border: 3px solid var(--d-disc-white-rim); }
+  .coin-face.black { background: var(--d-disc-black-bg); border: 2px solid var(--d-disc-black-rim); }
+  .coin-face.white { transform: rotateY(180deg); background: var(--d-disc-white-bg); border: 2px solid var(--d-disc-white-rim); }
   @keyframes coin-spin { to { transform: rotateY(360deg); } }
+  @keyframes wheel-spin { to { transform: rotate(360deg); } }
 
   /* ---- sub-screens ---- */
   .title { font-size: clamp(1.8rem, 8vw, 3rem); text-align: center; margin: 1.2rem 0 1.4rem; }
@@ -413,7 +432,9 @@
   @keyframes slide-in { from { transform: translateY(-14px) scale(0.96); opacity: 0; } }
   .error { text-align: center; margin: 0 0 0.8rem; padding: 0.5rem 1rem; border-radius: 10px; background: var(--d-error-bg); border: 2px solid var(--d-error-border); color: var(--d-error-text); }
 
-  .controls { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; margin-top: 1.4rem; }
+  .controls { display: flex; gap: 1.4rem; justify-content: center; flex-wrap: wrap; margin-top: 1.6rem; }
+  .ctl { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+  .ctl span { font-family: var(--d-font-serif); font-weight: 700; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--d-ink-dim); }
   .history { text-align: center; color: var(--d-ink-dim); font-size: 0.85rem; line-height: 1.5; margin-top: 1rem; word-break: break-word; }
 
   /* ---- result ---- */

@@ -7,22 +7,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::HumanSide;
 
-/// The look of the app (see design.md).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum UiMode {
-    #[default]
-    Casino,
-    Cafe,
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub show_legal_moves: bool,
     pub animations: bool,
     pub sound: bool,
-    pub ui_mode: UiMode,
     pub default_difficulty: u8,
     pub default_human_side: HumanSide,
 }
@@ -33,7 +23,6 @@ impl Default for Settings {
             show_legal_moves: true,
             animations: true,
             sound: true,
-            ui_mode: UiMode::Casino,
             default_difficulty: 2,
             default_human_side: HumanSide::Black,
         }

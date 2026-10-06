@@ -302,15 +302,14 @@ fn settings_round_trip_and_tolerate_bad_files() {
     let dir = std::env::temp_dir().join(format!("othello-settings-{}", std::process::id()));
     let path = dir.join("settings.json");
     assert_eq!(Settings::load(&path), Settings::default());
-    let custom = Settings { sound: false, ui_mode: UiMode::Cafe, default_difficulty: 4, ..Settings::default() };
+    let custom = Settings { sound: false, default_difficulty: 4, ..Settings::default() };
     custom.save(&path).unwrap();
     assert_eq!(Settings::load(&path), custom);
     std::fs::write(&path, r#"{"sound": false, "some_future_field": 1}"#).unwrap();
     assert_eq!(Settings::load(&path), Settings { sound: false, ..Settings::default() });
-    // A settings file from before UI modes existed (it had "theme") still loads.
-    std::fs::write(&path, r#"{"theme": "dark", "animations": false}"#).unwrap();
+    // Settings files written by earlier versions (with "theme" or "ui_mode") still load.
+    std::fs::write(&path, r#"{"theme": "dark", "ui_mode": "cafe", "animations": false}"#).unwrap();
     assert_eq!(Settings::load(&path), Settings { animations: false, ..Settings::default() });
-    assert_eq!(serde_json::to_value(UiMode::Cafe).unwrap(), "cafe");
     std::fs::write(&path, "not json").unwrap();
     assert_eq!(Settings::load(&path), Settings::default());
     std::fs::remove_dir_all(dir).ok();

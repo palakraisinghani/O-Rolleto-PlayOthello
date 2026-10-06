@@ -41,14 +41,10 @@ export type GameEvent =
   | { type: 'thinking'; progress: number }
   | { type: 'game_over'; winner: Side | null; resigned: boolean; black: number; white: number };
 
-/** The look of the app: see design.md. */
-export type UiMode = 'casino' | 'cafe';
-
 export interface Settings {
   show_legal_moves: boolean;
   animations: boolean;
   sound: boolean;
-  ui_mode: UiMode;
   default_difficulty: number;
   default_human_side: HumanSide;
 }

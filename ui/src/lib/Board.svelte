@@ -78,7 +78,7 @@
     margin-inline: auto;
     padding: var(--d-board-frame-padding);
     border-radius: var(--d-board-frame-radius);
-    border: 3px solid var(--d-board-frame-border);
+    border: var(--d-board-frame-border-width) ridge var(--d-board-frame-border);
     background: var(--d-board-frame-bg);
     box-shadow:
       inset 0 3px 0 rgba(255, 255, 255, 0.22),
@@ -129,16 +129,19 @@
     to { filter: hue-rotate(360deg) drop-shadow(0 0 5px var(--bulb)) drop-shadow(0 0 10px var(--bulb)); }
   }
 
+  /* The felt: one continuous green velvet surface; squares are just grid lines on it. */
   .board {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
     grid-template-rows: repeat(8, 1fr);
-    gap: var(--d-board-gap);
     aspect-ratio: 1;
-    padding: var(--d-board-gap);
-    background: var(--d-board-bg);
-    border-radius: 6px;
-    box-shadow: inset 0 0 0 2px var(--d-board-frame-border), 0 0 0 3px var(--d-board-border), 0 4px 18px rgba(0, 0, 0, 0.6);
+    background: var(--d-board-felt);
+    border-radius: 4px;
+    box-shadow:
+      0 0 0 3px var(--d-board-border),
+      0 0 0 5px rgba(0, 0, 0, 0.5),
+      inset 0 0 28px rgba(0, 0, 0, 0.55),
+      0 4px 18px rgba(0, 0, 0, 0.6);
   }
 
   .cell {
@@ -149,20 +152,13 @@
     padding: 0;
     border: none;
     perspective: 500px;
-    background:
-      linear-gradient(120deg, var(--d-board-square-gloss), transparent 40%),
-      repeating-linear-gradient(88deg, transparent 0 5px, var(--d-board-grain) 6px 7px, transparent 8px 12px),
-      var(--d-board-square-dark);
+    background: transparent;
+    box-shadow: inset 0 0 0 var(--d-board-grid-width) var(--d-board-grid-line);
   }
-  .cell.alt {
-    background:
-      linear-gradient(120deg, var(--d-board-square-gloss), transparent 40%),
-      repeating-linear-gradient(92deg, transparent 0 6px, var(--d-board-grain) 7px 8px, transparent 9px 13px),
-      var(--d-board-square-light);
-  }
+  .cell.alt { background: var(--d-board-square-alt-tint); }
   .cell:disabled { cursor: default; }
   .cell.legal { cursor: pointer; }
-  .cell.legal:hover { filter: brightness(var(--d-board-square-hover-brightness)) saturate(1.15); }
+  .cell.legal:hover { background: var(--d-board-square-hover); }
   .cell:focus-visible { outline: 3px solid var(--d-hint-color); outline-offset: -3px; z-index: 2; }
 
   /* Last move: a pulsing frame (shape, not just colour). */

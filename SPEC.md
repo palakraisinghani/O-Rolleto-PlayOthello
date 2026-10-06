@@ -73,14 +73,15 @@ The numbers are **placeholders**. They are tuned empirically once the 8×8 model
 - Hot-seat play on one screen: same board UI, no AI, optional names, Undo of one move, and a result dialog naming the winner.
 
 ### 3.5 Settings
-- Show legal moves (on/off), animations (on/off / speed), sound effects (on/off), UI mode (Casino or Cafe; see §3.6), default board size and difficulty. Settings persist between launches.
+- Show legal moves (on/off), animations (on/off / speed), sound effects (on/off), animations, default board size and difficulty. Settings persist between launches.
 
 ---
 
-### 3.6 UI modes and design tokens
-- Two selectable looks: **Casino** (night room, animated disco lighting, neon sign lettering, black-lacquer buttons, walnut board frame with chasing marquee bulbs, glossy discs) and **Cafe** (cream room, serif lettering, ceramic and espresso buttons, light oak board, slow string lights, gentler animation). Chosen in Settings > Style and by a switch on the home screen; the choice persists (`ui_mode` setting).
-- Every colour, texture and timing is a **design token** in the repo-root `design.md`: the Casino blocks define all of them and the Cafe block overrides some. A Vite plugin turns them into CSS variables, reloads the dev app when the file changes, fails the build if the code uses an undefined token, and warns about unused ones.
-- Board details: oak/maple squares with grain, discs on a 3D rotor (drop on placement, flips that ripple outward from the new disc and rise as they turn), pulsing rings on legal squares, a frame on the last move. Confetti on a win (not when you lose to the computer).
+### 3.6 Look and design tokens
+- One look, a **casino card room**: mahogany wood background and frames, burnished brass rims, **red velvet** button faces with brass rims and round icon buttons (Home, Undo, Hint, Resign, New game), a **green felt** board with grid lines, glossy black and white discs, a neon-sign title, warm disco-pop light washes drifting over the wood, chasing marquee bulbs on the board frame, and a slow roulette wheel on the home screen.
+- **Chip animations:** at the start of every game poker chips are thrown in from the bottom and sides, arc across the screen, land, bounce and fade (about 3 s, never blocks play). When someone wins, chips rain from the top while the result dialog is open (not when you lose to the computer).
+- Every colour, texture and timing is a **design token** in the repo-root `design.md`. A Vite plugin turns them into CSS variables, reloads the dev app when the file changes, fails the build if the code uses an undefined token, and warns about unused ones. Textures live in `ui/public/textures/`.
+- Board details: discs on a 3D rotor (drop on placement, flips that ripple outward from the new disc and rise as they turn), pulsing rings on legal squares, a frame on the last move.
 - All motion respects Settings > Animations and `prefers-reduced-motion`. Hints are rings and frames, not colour alone.
 
 ## 4. Architecture
@@ -196,7 +197,7 @@ Othello-Player/
 5. **M4 — Oroletto in the app:** ONNX inference + MCTS with temperature and root noise + parity tests once the 8×8 model is exported; the four levels tuned to the 2 s budget and to clear strength gaps.
 
 **Phase B — Design** (no engine or API changes)
-6. **M5 — Design iterations:** first pass done (Casino and Cafe modes, animations, design tokens; see §3.6); remaining: tuning with `design.md`, How-to-Play illustrations, sound.
+6. **M5 — Design iterations:** first pass done (casino card-room look, chip animations, design tokens; see §3.6); remaining: tuning with `design.md`, How-to-Play illustrations, sound.
 7. **M6 — Release:** README build guide, CI, release binaries.
 
 **Post-v1 (not committed)**
