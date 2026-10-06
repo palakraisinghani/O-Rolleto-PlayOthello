@@ -85,6 +85,12 @@ The numbers are **placeholders**. They are tuned empirically once the 8×8 model
 - **Responsive layout:** every screen fits the window with no scrolling down to the minimum 480x600. The game screen is a grid whose board is sized from both the width and the height left over (so it is never cut off or too big); in wide windows (aspect ratio of 5:4 or wider) the board sits on the left and the scoreboard, controls and move list form a column on the right; the move list is dropped in very short windows. Notices (pass banner, errors) float over the page so they never move the board. Content keeps clear of the LED strip.
 - All motion respects Settings > Animations and `prefers-reduced-motion`. Hints are rings and frames, not colour alone.
 
+### 3.7 Web build
+- A **single self-contained HTML page** (`web/othello.html`, built by `npm run build:web`) runs the same UI in a browser, for hosting on GitHub Pages or anywhere else. No server or network is needed.
+- The UI talks to a backend through `ui/src/lib/api.ts`: inside Tauri that is the Rust engine; in a browser it is a **TypeScript port** of the engine and session (`ui/src/lib/engine/`), with settings in localStorage. The port is verified against the same golden data as the Rust engine and has the same session behaviour (automatic passes, undo rules, stale computer moves discarded).
+- The browser build has no neural network, so its four levels are classic bots: random, greedy, alpha-beta depth 3, and time-limited iterative-deepening alpha-beta (about 0.9 s). Oroletto stays desktop-only unless an in-browser model runtime is added later.
+- The page is generated: rebuild it after any UI or `design.md` change.
+
 ## 4. Architecture
 
 ```

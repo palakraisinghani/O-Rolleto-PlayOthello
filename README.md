@@ -19,6 +19,7 @@ The UI never implements rules: it sends commands (`new_game`, `play`, `undo`, ..
 SPEC.md                    specification, decisions, milestones
 launch.sh                  launches the app in development mode
 design.md                  design tokens for the whole look (edit to tune the UI)
+web/othello.html           the whole game as one self-contained page for GitHub Pages (built by `npm run build:web`)
 Cargo.toml                 Rust workspace
 core/                      Rust crate `othello-core`: engine, rules, history/undo, random + greedy bots
 api/                       Rust crate `othello-api`: the command/event API the UI talks to (see SPEC §4.3)
@@ -69,13 +70,43 @@ With the Rust toolchain installed:
 
 ```bash
 cargo test      # engine + API tests, incl. the golden-file checks against OthelloRL
+(cd ui && npm test)   # the TypeScript engine used by the web page, against the same golden file
 ```
+
+## Web version (host it on GitHub Pages)
+
+[`web/othello.html`](web/othello.html) is the whole game as **one self-contained file** (about 260 KB: the code, fonts and textures are all inside it). It looks and plays like the desktop app: same wood, brass, velvet, LED strip and chip animations. It needs no server and no network, and it even works opened straight from disk.
+
+**To put it on your GitHub Pages site**, copy the file into your site's repository and link to it:
+
+```
+your-site/othello/index.html     <- a copy of web/othello.html
+```
+```html
+<a href="/othello/">Play Othello</a>
+<!-- or embed it in a page -->
+<iframe src="/othello/" title="Othello" style="width:100%;height:90vh;border:0"></iframe>
+```
+(If you copy it as `othello.html` instead, link to `/othello.html`.)
+
+Differences from the desktop app:
+- The computer is a classic bot, not Oroletto (the neural network is not in the browser build). The four levels are **1 Easy** random, **2 Medium** greedy (most discs next move), **3 Hard** alpha-beta search 3 moves deep, **4 Master** alpha-beta with iterative deepening for about 0.9 s per move.
+- Settings are kept in the browser (localStorage).
+
+Rebuild it after changing the UI or `design.md` (this regenerates `web/othello.html`):
+
+```bash
+cd ui && npm install     # once
+npm run build:web
+```
+
+The page runs on a TypeScript port of the Rust engine (`ui/src/lib/engine/`). `npm test` checks that port against the same golden file as the Rust engine (perft, hand-built rule cases and 100 recorded games), plus the session logic and the bots; `npm run test:web` drives the built page end to end in a headless DOM (start a game, play, undo, play a whole game, change a setting).
 
 ## Tuning the look: `design.md`
 
 The UI is a casino card room: mahogany wood, burnished brass rims, red velvet buttons, green felt for the board, scoreboard and panels, glossy discs, a neon title and an RGB LED strip (individually coloured, twinkling bulbs with a flowing colour pattern) round the window edge over plain wood. Poker chips splash across the screen at the start of every game and rain down when someone wins.
 
-[`design.md`](design.md) holds every tunable value: the wooden background, option boxes, buttons and icon buttons, scoreboard, board frame and border, bulbs, felt and squares, discs, disc flip/drop animations, hints, dialogs, the poker chips and the roulette wheel. Edit a value, save, and the running app reloads with it. The build checks that tokens and code agree (a missing token fails the build, an unused one warns). Textures (`wood.png`, `red-velvet.png`, `green-velvet.png`) are in `ui/public/textures/`; to use your own, drop an image there and point a token at it.
+[`design.md`](design.md) holds every tunable value: the wooden background, option boxes, buttons and icon buttons, scoreboard, board frame and border, bulbs, felt and squares, discs, disc flip/drop animations, hints, dialogs, the poker chips and the roulette wheel. Edit a value, save, and the running app reloads with it. The build checks that tokens and code agree (a missing token fails the build, an unused one warns). Textures (`wood.jpg`, `red-velvet.jpg`, `green-velvet.jpg`) are in `ui/public/textures/`; to use your own, drop an image there and point a token at it.
 
 ## Run the app (development)
 

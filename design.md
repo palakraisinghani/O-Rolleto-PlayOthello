@@ -12,13 +12,13 @@ the screen at the start of a game and rain down when someone wins.
 
 - Every line inside a `tokens` block is `name: value`. The value is plain CSS: a colour,
   a gradient, a length (`26px`, `38px`), a time (`0.6s`, `130ms`), a percentage, a font stack,
-  or an image (`url(/textures/wood.png) center / cover`).
+  or an image (`url(/textures/wood.jpg) center / cover`).
 - Text after ` # ` (a space, `#`, a space) on a line is a comment. A colour like `#ff2fb3`
   is not a comment because no space follows its `#`.
 - A value can reuse another token with `var(--d-the-name)`: underscores in a token name become
   hyphens, e.g. `brass_light` is `var(--d-brass-light)`. Change `brass` once and every brass
   edge follows.
-- **Textures** live in `ui/public/textures/` (`wood.png`, `red-velvet.png`, `green-velvet.png`).
+- **Textures** live in `ui/public/textures/` (`wood.jpg`, `red-velvet.jpg`, `green-velvet.jpg`).
   To use your own, drop a PNG or JPG there and point a token at it, e.g.
   `url(/textures/my-felt.jpg) center / cover`.
 - Don't rename or delete tokens: the app reads them by name. The build fails if the code uses a
@@ -51,7 +51,7 @@ Just the wood: no vignette, lamp or drifting colour. The only light is the LED s
 
 ```tokens
 main_bg: #1c0b06                          # colour shown if the image is missing
-main_bg_image: url(/textures/wood.png) center / cover     # the mahogany wood
+main_bg_image: url(/textures/wood.jpg) center / cover     # the mahogany wood
 main_bg_tint: rgba(12, 4, 2, 0.4)         # darkens the wood so text stays readable: 0 = untouched wood
 ```
 
@@ -106,8 +106,8 @@ brass_light: #f1dc94                      # highlight
 brass_dark: #7a5a1f                       # shadow
 brass_gradient: linear-gradient(100deg, #8a6420, #f1dc94 22%, #b98a35 45%, #f6e6a8 70%, #8a6420)   # burnished, with a sheen
 brass_shine_duration: 8s                  # the sheen slowly crossing the brass (9999s = static)
-velvet_red: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.18)), url(/textures/red-velvet.png) center / cover   # red velvet (the shading gradient on top: set both alphas to 0 for flat velvet)
-velvet_green: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.22)), url(/textures/green-velvet.png) center / cover   # green velvet, used for panels
+velvet_red: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.18)), url(/textures/red-velvet.jpg) center / cover   # red velvet (the shading gradient on top: set both alphas to 0 for flat velvet)
+velvet_green: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.22)), url(/textures/green-velvet.jpg) center / cover   # green velvet, used for panels
 ```
 
 ## 7. Buttons
@@ -140,7 +140,7 @@ icon_color: #f6e3a1                       # the glyph (brass)
 ## 9. Option boxes (setup, settings, rules and the result dialog)
 
 ```tokens
-option_box_bg: var(--d-velvet-green)      # green velvet (try url(/textures/wood.png) for wood again)
+option_box_bg: var(--d-velvet-green)      # green velvet (try url(/textures/wood.jpg) for wood again)
 option_box_border: var(--d-brass)         # brass frame
 option_box_border_width: 4px
 option_box_radius: 16px
@@ -168,7 +168,7 @@ scoreboard_pulse_duration: 1.6s
 ## 11. Board frame (the wooden surround)
 
 ```tokens
-board_frame_bg: linear-gradient(115deg, rgba(255,255,255,0.14), transparent 30%, transparent 70%, rgba(0,0,0,0.18)), url(/textures/wood.png) center / cover   # polished wood with a sheen
+board_frame_bg: linear-gradient(115deg, rgba(255,255,255,0.14), transparent 30%, transparent 70%, rgba(0,0,0,0.18)), url(/textures/wood.jpg) center / cover   # polished wood with a sheen
 board_frame_border: var(--d-brass)        # the brass rim around the frame ("bg_border")
 board_frame_border_width: 5px
 board_frame_radius: 22px
@@ -190,7 +190,7 @@ bulb_hue_cycle_duration: 8s               # colour cycling of the bulbs; 9999s k
 ## 13. Board surface (the felt)
 
 ```tokens
-board_felt: linear-gradient(120deg, rgba(255,255,255,0.07), transparent 45%), url(/textures/green-velvet.png) center / cover   # green felt with a soft sheen
+board_felt: linear-gradient(120deg, rgba(255,255,255,0.07), transparent 45%), url(/textures/green-velvet.jpg) center / cover   # green felt with a soft sheen
 board_border: var(--d-brass)              # thin brass ring around the felt
 board_grid_line: rgba(0, 0, 0, 0.55)      # the lines between squares
 board_grid_width: 1px
@@ -237,7 +237,7 @@ hint_color: var(--d-neon-cyan)            # square suggested by the Hint button
 ## 17. Banners and dialogs
 
 ```tokens
-banner_bg: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(0,0,0,0.4)), url(/textures/red-velvet.png) center / cover   # the "has no legal move" notice
+banner_bg: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(0,0,0,0.4)), url(/textures/red-velvet.jpg) center / cover   # the "has no legal move" notice
 banner_border: var(--d-brass)
 banner_text: #fff4e0
 error_bg: #5b0a0a

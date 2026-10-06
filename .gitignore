@@ -19,3 +19,4 @@ app/gen/
 
 # Inspiration photos (reference only; the textures the app ships are in ui/public/textures)
 Design-inspo/
+ui/dist-web/

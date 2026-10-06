@@ -5,6 +5,28 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 
+const PUBLIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), 'public');
+const MIME: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', svg: 'image/svg+xml' };
+
+/**
+ * Replace url(/textures/x.jpg) with a reference to a data: URI defined once, so the page needs no
+ * separate files and a texture used by several tokens is embedded only once.
+ */
+function inlineTextures(css: string): string {
+  const defs = new Map<string, string>();
+  const body = css.replace(/url\((['"]?)\/(textures\/[^)'"]+)\1\)/g, (_m, _q, rel: string) => {
+    const name = `--d-tex-${rel.replace(/^textures\//, '').replace(/\.[^.]+$/, '').replace(/[^a-z0-9]+/gi, '-')}`;
+    if (!defs.has(name)) {
+      const ext = rel.split('.').pop()!.toLowerCase();
+      const data = readFileSync(join(PUBLIC_DIR, rel)).toString('base64');
+      defs.set(name, `url(data:${MIME[ext] ?? 'application/octet-stream'};base64,${data})`);
+    }
+    return `var(${name})`;
+  });
+  const decls = [...defs].map(([n, v]) => `  ${n}: ${v};`).join('\n');
+  return defs.size ? `:root {\n${decls}\n}\n${body}` : body;
+}
+
 const here = dirname(fileURLToPath(import.meta.url));
 const DESIGN_FILE = resolve(here, '../design.md');
 const SRC_DIR = resolve(here, 'src');
@@ -63,7 +85,7 @@ function load(warn: (msg: string) => void): string {
   return `:root {\n${[...tokens].map(([n, v]) => `  ${cssName(n)}: ${v};`).join('\n')}\n}`;
 }
 
-export default function design(): Plugin {
+export default function design(options: { inlineTextures?: boolean } = {}): Plugin {
   return {
     name: 'othello-design',
     buildStart() {
@@ -81,7 +103,8 @@ export default function design(): Plugin {
     transformIndexHtml: {
       order: 'pre',
       handler() {
-        const css = load((m) => console.warn(`\n[design] ${m}`));
+        let css = load((m) => console.warn(`\n[design] ${m}`));
+        if (options.inlineTextures) css = inlineTextures(css);
         return [{ tag: 'style', attrs: { id: 'design-tokens' }, children: css, injectTo: 'head-prepend' }];
       }
     }

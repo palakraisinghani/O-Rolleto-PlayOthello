@@ -1,10 +1,14 @@
 // Typed mirror of the `othello-api` crate (see SPEC §4.3). The UI never computes rules:
 // it sends these commands and renders the snapshots and events it receives.
 //
+// Two backends serve the same commands: inside the desktop app they go to the Rust engine through
+// Tauri; in a plain browser (the single-file web build) they go to the TypeScript engine in ./engine.
+//
 // Squares are indices 0..63 (a1 = 0, h8 = 63). Board cells: 0 empty, 1 black, 2 white.
 
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { createWebBackend } from './engine/web-backend.ts';
 
 export type Side = 'black' | 'white';
 export type HumanSide = Side | 'random';
@@ -58,18 +62,25 @@ export type ApiError =
   | { code: 'nothing_to_undo' }
   | { code: 'hint_unavailable' };
 
-export const newGame = (mode: Mode) => invoke<Snapshot>('new_game', { mode });
-export const play = (square: number) => invoke<Snapshot>('play', { square });
-export const undo = () => invoke<Snapshot>('undo');
-export const resign = () => invoke<Snapshot>('resign');
-export const snapshot = () => invoke<Snapshot>('snapshot');
-export const hint = () => invoke<number>('hint');
-export const getSettings = () => invoke<Settings>('get_settings');
-export const setSettings = (settings: Settings) => invoke<void>('set_settings', { settings });
+/** True inside the Tauri desktop app. */
+const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+const web = inTauri ? null : createWebBackend();
+
+export const newGame = (mode: Mode): Promise<Snapshot> => (web ? web.newGame(mode) : invoke('new_game', { mode }));
+export const play = (square: number): Promise<Snapshot> => (web ? web.play(square) : invoke('play', { square }));
+export const undo = (): Promise<Snapshot> => (web ? web.undo() : invoke('undo'));
+export const resign = (): Promise<Snapshot> => (web ? web.resign() : invoke('resign'));
+export const snapshot = (): Promise<Snapshot> => (web ? web.snapshot() : invoke('snapshot'));
+export const hint = (): Promise<number> => (web ? web.hint() : invoke('hint'));
+export const getSettings = (): Promise<Settings> => (web ? web.getSettings() : invoke('get_settings'));
+export const setSettings = (settings: Settings): Promise<void> =>
+  web ? web.setSettings(settings) : invoke('set_settings', { settings });
 
 /** Subscribe to engine events. Returns the function that unsubscribes. */
 export const onGameEvent = (handler: (event: GameEvent) => void): Promise<UnlistenFn> =>
-  listen<GameEvent>('game-event', (e) => handler(e.payload));
+  web
+    ? Promise.resolve(web.onEvent(handler))
+    : listen<GameEvent>('game-event', (e) => handler(e.payload));
 
 /** "d3" for square 19; "pass" for 64. */
 export const squareName = (square: number): string =>
