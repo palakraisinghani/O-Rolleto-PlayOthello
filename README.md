@@ -17,6 +17,7 @@ The UI never implements rules: it sends commands (`new_game`, `play`, `undo`, ..
 
 ```
 SPEC.md                    specification, decisions, milestones
+launch.sh                  launches the app in development mode
 Cargo.toml                 Rust workspace
 core/                      Rust crate `othello-core`: engine, rules, history/undo, random + greedy bots
 api/                       Rust crate `othello-api`: the command/event API the UI talks to (see SPEC §4.3)
@@ -72,11 +73,10 @@ cargo test      # engine + API tests, incl. the golden-file checks against Othel
 ## Run the app (development)
 
 ```bash
-cd ui && npm install && cd ..        # once
-cd app && npx --prefix ../ui tauri dev
+bash launch.sh
 ```
 
-This starts the Vite dev server and opens the app window; edits to `ui/` reload live, edits to Rust code rebuild.
+This installs the UI dependencies on the first run, then starts the Vite dev server and opens the app window. Edits to `ui/` reload live, and edits to Rust code rebuild. The first launch compiles the Rust side and takes a minute or two. `bash launch.sh --check` only verifies that Rust and Node are installed.
 
 ## Build prerequisites (for the app)
 
