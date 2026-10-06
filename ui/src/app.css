@@ -62,9 +62,9 @@ button.btn {
   background-size: 300% 100%;
   animation: brass-shine var(--d-brass-shine-duration) linear infinite;
   box-shadow:
-    0 4px 0 var(--lip),
-    0 8px 18px rgba(0, 0, 0, 0.55),
-    0 0 14px var(--glow);
+    0 var(--d-button-depth) 0 var(--lip),
+    0 calc(var(--d-button-depth) * 3) 10px rgba(0, 0, 0, 0.4),
+    0 0 12px var(--glow);
   transition: transform 0.12s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
 button.btn::before {
@@ -73,20 +73,22 @@ button.btn::before {
   inset: var(--d-button-rim);
   border-radius: inherit;
   background: var(--face);
-  box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.22), inset 0 -4px 8px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, calc(0.22 * var(--d-button-bevel))),
+    inset 0 -3px 6px rgba(0, 0, 0, calc(0.5 * var(--d-button-bevel)));
   z-index: -1;
 }
 button.btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  filter: brightness(1.12);
+  transform: translateY(-1px);
+  filter: brightness(1.1);
   box-shadow:
-    0 6px 0 var(--lip),
-    0 12px 22px rgba(0, 0, 0, 0.6),
-    0 0 26px color-mix(in srgb, var(--d-button-hover-glow) 70%, transparent);
+    0 var(--d-button-depth) 0 var(--lip),
+    0 calc(var(--d-button-depth) * 4) 14px rgba(0, 0, 0, 0.45),
+    0 0 22px color-mix(in srgb, var(--d-button-hover-glow) 65%, transparent);
 }
 button.btn:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 var(--lip), 0 2px 6px rgba(0, 0, 0, 0.6), 0 0 12px var(--glow);
+  transform: translateY(var(--d-button-depth));
+  box-shadow: 0 0 0 var(--lip), 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 10px var(--glow);
 }
 button.btn:focus-visible { outline: 3px solid var(--d-neon-cyan); outline-offset: 4px; }
 button.btn:disabled { opacity: 0.45; cursor: default; filter: grayscale(0.7); animation: none; }

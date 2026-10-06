@@ -85,7 +85,7 @@ sign_flicker_duration: 5s                 # how often the tube flickers (bigger 
 
 ## 5. Brass and red velvet (the two shared materials)
 
-Brass trims the buttons, frames, panels and scoreboard. Velvet is the face of the buttons.
+Brass trims the buttons, frames, panels and scoreboard. Red velvet is the face of the buttons; green velvet covers the board, the scoreboard panels and the option boxes.
 
 ```tokens
 brass: #c9a24e                            # mid brass
@@ -93,7 +93,8 @@ brass_light: #f1dc94                      # highlight
 brass_dark: #7a5a1f                       # shadow
 brass_gradient: linear-gradient(100deg, #8a6420, #f1dc94 22%, #b98a35 45%, #f6e6a8 70%, #8a6420)   # burnished, with a sheen
 brass_shine_duration: 8s                  # the sheen slowly crossing the brass (9999s = static)
-velvet_red: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(0,0,0,0.42)), url(/textures/red-velvet.png) center / cover   # velvet with soft top light
+velvet_red: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.18)), url(/textures/red-velvet.png) center / cover   # red velvet (the shading gradient on top: set both alphas to 0 for flat velvet)
+velvet_green: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.22)), url(/textures/green-velvet.png) center / cover   # green velvet, used for panels
 ```
 
 ## 6. Buttons
@@ -104,9 +105,11 @@ button_text: #fff4e0
 button_rim: 3px                           # thickness of the brass rim
 button_glow: var(--d-brass)               # soft glow around the button
 button_hover_glow: var(--d-brass-light)   # glow when hovered
-button_lip: #240806                       # the dark 3D edge under the button
+button_depth: 1px                         # height of the 3D edge under the button, and how far it moves when pressed (0px = completely flat, 4px = chunky)
+button_bevel: 0.4                         # strength of the inner highlight and shade: 0 = flat, 1 = strongly rounded
+button_lip: #240806                       # colour of that edge
 button_radius: 999px                      # 999px = pill, 12px = rounded rectangle
-button_primary_bg: linear-gradient(180deg, #f6e3a1, #d4af5a 55%, #a67c2e)    # the main button is polished brass
+button_primary_bg: linear-gradient(180deg, #ecd488, #d4af5a 60%, #c09a45)    # the main button is polished brass
 button_primary_text: #2a1206
 button_primary_lip: #5a3f12
 button_primary_glow: var(--d-brass-light)
@@ -124,7 +127,7 @@ icon_color: #f6e3a1                       # the glyph (brass)
 ## 8. Option boxes (setup, settings, rules and the result dialog)
 
 ```tokens
-option_box_bg: linear-gradient(rgba(22,8,3,0.62), rgba(22,8,3,0.72)), url(/textures/wood.png) center / cover   # dark polished wood
+option_box_bg: var(--d-velvet-green)      # green velvet (try url(/textures/wood.png) for wood again)
 option_box_border: var(--d-brass)         # brass frame
 option_box_border_width: 4px
 option_box_radius: 16px
@@ -138,7 +141,7 @@ checkbox_color: #d12b3a                   # velvet red ticks
 ## 9. Scoreboard (the two player panels)
 
 ```tokens
-scoreboard_bg: linear-gradient(180deg, rgba(48,18,10,0.92), rgba(16,6,3,0.95))
+scoreboard_bg: var(--d-velvet-green)
 scoreboard_border: var(--d-brass-dark)
 scoreboard_active_border: var(--d-brass-light)    # panel of the side to move
 scoreboard_active_glow: var(--d-neon-yellow)

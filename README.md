@@ -73,7 +73,7 @@ cargo test      # engine + API tests, incl. the golden-file checks against Othel
 
 ## Tuning the look: `design.md`
 
-The UI is a casino card room: mahogany wood, burnished brass rims, red velvet buttons, a green felt board, glossy discs, warm disco-pop lights and a neon title. Poker chips splash across the screen at the start of every game and rain down when someone wins.
+The UI is a casino card room: mahogany wood, burnished brass rims, red velvet buttons, green felt for the board, scoreboard and panels, glossy discs, warm disco-pop lights and a neon title. Poker chips splash across the screen at the start of every game and rain down when someone wins.
 
 [`design.md`](design.md) holds every tunable value: the wooden background, option boxes, buttons and icon buttons, scoreboard, board frame and border, bulbs, felt and squares, discs, disc flip/drop animations, hints, dialogs, the poker chips and the roulette wheel. Edit a value, save, and the running app reloads with it. The build checks that tokens and code agree (a missing token fails the build, an unused one warns). Textures (`wood.png`, `red-velvet.png`, `green-velvet.png`) are in `ui/public/textures/`; to use your own, drop an image there and point a token at it.
 
