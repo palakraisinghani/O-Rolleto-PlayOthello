@@ -28,7 +28,7 @@ tools/make_golden.py       generates the golden test data from OthelloRL
 tests/golden/              reference data the Rust engine is tested against
 ```
 
-Planned (not yet created): MCTS and Oroletto in `core/`, ``models/` (Oroletto ONNX + manifest).
+Planned (not yet created): MCTS and Oroletto in `core/`, and `models/` (Oroletto ONNX + manifest).
 
 ## Conventions
 
