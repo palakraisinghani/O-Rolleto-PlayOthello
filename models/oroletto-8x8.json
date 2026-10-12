@@ -62,7 +62,7 @@
       }
     ]
   },
-  "levels_calibrated": false,
+  "levels_calibrated": true,
   "network": {
     "blocks": 6,
     "channels": 64,
@@ -70,7 +70,7 @@
     "training_games": 100096
   },
   "provenance": {
-    "othellorl_commit": "75e6a3c",
+    "othellorl_commit": "727a50d",
     "run": "results/alphazero_8x8/seed0",
     "final_scores": {
       "random": 1.0,
