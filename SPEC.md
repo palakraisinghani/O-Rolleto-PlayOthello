@@ -1,10 +1,10 @@
 # Othello Player — Specification
 
-A desktop application for playing Othello on your own machine. You can play against the computer at several difficulty levels, with the hardest levels played by **Oroletto**, the AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL). Two people can also play each other on the same computer.
+A desktop application for playing Othello on your own machine. You can play against the computer at four difficulty levels, all played by **Oroletto**, the AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL). Two people can also play each other on the same computer.
 
 The user interface will be designed in iterations, so the architecture keeps the **UI layer cleanly separate** from the game engine and the AI.
 
-Status: **draft v0.2** — sections marked ❓ need a decision before implementation starts. Decided so far: Tauri + Svelte, 8×8 board.
+Status: **draft v0.2** — sections marked ❓ need a decision before implementation starts. Decided so far: Tauri + Svelte, 8×8 board, four levels from one model weakened only by move temperature.
 
 ---
 
@@ -13,7 +13,7 @@ Status: **draft v0.2** — sections marked ❓ need a decision before implementa
 **Goals (v1)**
 - A real, self-contained **application binary** that anyone can **build from source** on Linux, macOS and Windows. It runs offline, with no Python or ML framework installed.
 - A polished, responsive UI that is easy to restyle and iterate on.
-- **Play vs Computer** at graded difficulty levels, with Oroletto behind the hardest ones.
+- **Play vs Computer** at four difficulty levels, all played by Oroletto (weakened by move temperature on the lower levels).
 - **Two-player (local, same screen)** mode.
 - Correct rules in every situation, including forced passes, double-pass endings and full boards.
 
@@ -51,23 +51,27 @@ Status: **draft v0.2** — sections marked ❓ need a decision before implementa
 - Input: mouse/touch click on a square; keyboard navigation (arrows + Enter) for accessibility.
 
 ### 3.3 Play vs Computer — difficulty levels
-**Four levels, one model.** Every level is played by the same AlphaZero-style network, Oroletto. Difficulty comes from three search settings:
-- **MCTS simulations:** fewer simulations means shallower, weaker play.
-- **Move temperature:** the move is sampled from visit counts ∝ N^(1/T). High T gives varied, error-prone play; T → 0 is greedy (most-visited move).
-- **Root noise:** Dirichlet noise mixed into the root priors (weight ε) makes weaker levels explore moves the network does not favour.
+**Four levels, one model, one knob.** Every level is played by the same network, **the strongest 8×8 Oroletto model**, with the **same MCTS search budget**. Levels differ **only in the move temperature T**:
+- After searching, the move is sampled from the root visit counts with probability ∝ N^(1/T).
+- **T = 0** plays the most-visited move (full strength). **Higher T** spreads probability over the other moves the search visited, so play becomes more varied and makes more mistakes.
+- There is **no root noise** and no change in the number of simulations between levels.
 
-| Level | Name | Simulations | Temperature | Root noise ε |
-|---|---|---|---|---|
-| 1 | Easy | ~10 | 1.0 | 0.3 |
-| 2 | Medium | ~50 | 0.5 | 0 |
-| 3 | Hard | ~200 | 0.1 | 0 |
-| 4 | Master | ~800 (as many as fit the 2 s budget) | 0 (greedy) | 0 |
+| Level | Name | Simulations | Temperature T |
+|---|---|---|---|
+| 1 | Easy | shared (≈200) | high (placeholder 2.0) |
+| 2 | Medium | shared | placeholder 1.0 |
+| 3 | Hard | shared | placeholder 0.25 |
+| 4 | Master | shared | 0 (most-visited move) |
 
-The numbers are **placeholders**. They are tuned empirically once the 8×8 model exists: play the levels against each other and against reference bots (random, greedy, minimax from OthelloRL), then adjust until the gaps between levels are clear (e.g. each level beats the one below it ≥ 70%). The final values live in the model manifest or a settings file, not in code.
+The values are **placeholders** until OthelloRL calibrates them on the 8×8 model (OthelloRL PLAN Step 5.7):
+- the shared simulation count is the largest that keeps the worst-case move within the 2 s budget;
+- the four temperatures are chosen from candidates {0, 0.25, 0.5, 1, 2, 4} so that each level beats the one below it at least 70% of the time.
 
-- The AI must respond within **≤ 2 s per move** on a typical laptop at every level; simulation counts are capped to that budget.
+The calibrated values are delivered in the model manifest (`models/oroletto-8x8.json`, fields `levels.sims` and `levels.ladder[].temperature`). They are read at runtime, not hard-coded.
+
+- The AI must respond within **≤ 2 s per move** on a typical laptop at every level. Every level uses the same search, so they all cost the same.
 - The rule-based bots from OthelloRL (random, greedy, heuristic, minimax) are **not** player levels. They are kept as test baselines and as stand-ins during development before the model is ready.
-- Temperature and noise apply only to the in-game move choice. Hints and the parity test use temperature 0 and no noise.
+- Temperature applies only to the in-game move choice. Hints and the parity test use temperature 0.
 
 ### 3.4 Two Players (local)
 - Hot-seat play on one screen: same board UI, no AI, optional names, Undo of one move, and a result dialog naming the winner.
@@ -124,11 +128,11 @@ The numbers are **placeholders**. They are tuned empirically once the 8×8 model
 - **Cons:** larger binaries (~150 MB); UI iteration in QML rather than web tech; slower MCTS (fine up to a few hundred simulations).
 
 ### 4.2 Oroletto model contract
-- OthelloRL exports Oroletto to **ONNX**, with a new export script to be added there. The file is shipped in this repo under `models/` (~1.2 MB), together with a JSON manifest.
+- OthelloRL exports **only the strongest 8×8 model** to **ONNX** (`scripts/export_onnx.py`). It is shipped in this repo as `models/oroletto-8x8.onnx` (~1.8 MB; 6 residual blocks × 64 channels), together with a JSON manifest. If a later OthelloRL training seed is stronger head-to-head, it *replaces* this file; there is never more than one model.
 - **Input:** `float32[batch, 3, n, n]`, with planes (own discs, opponent discs, legal moves) from the side to move.
 - **Outputs:** `policy_logits float32[batch, n*n+1]` (last index = pass); `value float32[batch]` in [−1, 1] for the side to move.
-- **The manifest** (`models/oroletto-8x8.json`) records: board size, planes, `c_puct = 1.5`, default simulations per level, OthelloRL commit hash and run id (`results/alphazero/seed1`), and a SHA-256 of the ONNX file.
-- **Search parity:** the app's MCTS matches OthelloRL's (PUCT, values negated each ply). The parity test runs with noise off and temperature 0 (greedy by visit count); noise and temperature are the app's difficulty knobs (§3.3), on top of the same search. A parity test checks that, for a fixed set of positions, the Rust/app search picks the same moves as OthelloRL's Python search with the same seed and simulation count (allowing ties).
+- **The manifest** (`models/oroletto-8x8.json`) records: board size; input layout (planes, side-to-move perspective, square index, pass index); output shapes; search settings (`c_puct = 1.5`, move choice by N^(1/T), value negated each ply); the **levels** (`sims` shared by all levels, plus one temperature per level, and `levels_calibrated`); network size and training games; OthelloRL commit hash and run id (e.g. `results/alphazero_8x8/seed0`); the ONNX-vs-PyTorch check; and a SHA-256 of the ONNX file.
+- **Search parity:** the app's MCTS matches OthelloRL's (PUCT, values negated each ply, ties in selection broken by the first move in legal-move order). OthelloRL ships fixtures in `tests/golden/parity_8x8.json`: for 50 positions, the network's policy logits and value, and the **exact root visit counts** after 16, 64 and 200 simulations. Search without noise is deterministic, so the app must reproduce the visit counts exactly; only the final choice among equally visited moves is random. Temperature (§3.3) is applied after the search and is not part of the parity test.
 
 ---
 
@@ -188,8 +192,8 @@ Othello-Player/
 
 ## 8. Open decisions ❓
 1. ~~**Technology stack**~~ — **decided: Tauri 2 + Svelte.**
-2. ~~**Board sizes**~~ — **decided: 8×8.** The engine supports 8×8 only. Oroletto is currently trained on 6×6 only. All four levels need the 8×8 model, which you will export from OthelloRL when it is ready. Until then development uses the rule-based bots as stand-ins.
-3. ~~**Difficulty ladder**~~ — **decided: 4 levels, one AlphaZero model**, varied by simulations, temperature and root noise (§3.3). Exact values to be tuned once the 8×8 model exists.
+2. ~~**Board sizes**~~ — **decided: 8×8.** The engine supports 8×8 only. The 8×8 Oroletto is being trained in OthelloRL (Phase 5). It will be exported and copied into `models/` when ready. Until then development uses the rule-based bots as stand-ins.
+3. ~~**Difficulty ladder**~~ — **decided: 4 levels, one model (the strongest), weakened only by move temperature**, with a shared simulation count and no root noise (§3.3). The values are calibrated in OthelloRL and delivered in the manifest.
 4. **Design process:** start from a few static mock-ups (home + game screen, light/dark) for you to choose from before building the real UI?
 5. **Distribution:** source-only builds for now, or also GitHub Releases with prebuilt binaries? Also code signing for macOS/Windows (later).
 6. ~~**Licence**~~ — **decided: MIT** (`LICENSE`).
@@ -201,7 +205,7 @@ Othello-Player/
 2. **M1 — Core:** 8×8 engine + rule-based bots (test baselines and dev stand-ins) + rules tests (cross-checked against OthelloRL).
 3. **M2 — API:** `othello-api` crate (done: commands, events, session, AI worker thread with cancellation, settings; see §4.3), then the thin Tauri shell around it; **API frozen when the shell lands**.
 4. **M3 — Plain UI:** unstyled board, counts, pass banner, undo, settings, result; scripted full game in each mode.
-5. **M4 — Oroletto in the app:** ONNX inference + MCTS with temperature and root noise + parity tests once the 8×8 model is exported; the four levels tuned to the 2 s budget and to clear strength gaps.
+5. **M4 — Oroletto in the app:** ONNX inference + MCTS + move temperature, with the parity tests against `tests/golden/parity_8x8.json`. The four levels read the shared `sims` and the per-level temperatures from the manifest, as calibrated by OthelloRL.
 
 **Phase B — Design** (no engine or API changes)
 6. **M5 — Design iterations:** first pass done (casino card-room look, chip animations, design tokens; see §3.6); remaining: tuning with `design.md`, How-to-Play illustrations, sound.
