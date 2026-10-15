@@ -1,5 +1,23 @@
 # Putting the game on your GitHub Pages site
 
+## Option A (recommended): serve it from this repository
+
+This repo can publish the game itself, so your site only has to link to it, and updating the game
+is just a `git push`. The build writes the page to `docs/index.html`, which GitHub Pages serves.
+
+1. **Push this repo** to GitHub (`git push`).
+2. On GitHub: repository **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
+   branch `main`, folder `/docs`, **Save**. After a minute the game is live at
+   `https://palakraisinghani.github.io/O-Rolleto-PlayOthello/`.
+3. **Link it from your site.** Either a plain link to that address, or the Play button: paste
+   `web/embed/play-button.html` into your page and set
+   `data-src="https://palakraisinghani.github.io/O-Rolleto-PlayOthello/"`.
+4. **Updating later:** `cd ui && npm run build:web`, commit `docs/` and `web/`, push.
+
+Only the contents of this repo are published, so anything committed here is public (the repo is public).
+
+## Option B: copy the file into your site's repository
+
 Two files do everything:
 
 | File | What it is |
