@@ -129,13 +129,13 @@
   .bubble {
     position: relative;
     margin: 0;
-    max-width: 17rem;
-    padding: 0.5rem 0.8rem;
+    max-width: min(21rem, 100%);
+    padding: 0.6rem 0.95rem;
     border-radius: 14px;
     border: 2px solid var(--d-croupier-bubble-border);
     background: var(--d-croupier-bubble-bg);
     color: var(--d-croupier-bubble-text);
-    font: 700 0.88rem / 1.3 var(--d-font-serif);
+    font: 700 1.02rem / 1.35 var(--d-font-serif);
     text-align: center;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
     animation: pop-in 0.35s cubic-bezier(0.2, 1.4, 0.5, 1);
@@ -155,6 +155,6 @@
   @keyframes pop-in { from { transform: scale(0.7) translateY(6px); opacity: 0; } }
 
   .compact { flex-direction: row; gap: 0.7rem; align-items: center; min-width: 0; }
-  .compact .bubble { order: 2; text-align: left; font-size: 0.8rem; padding: 0.35rem 0.65rem; max-width: none; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .compact .bubble { order: 2; text-align: left; font-size: 0.88rem; line-height: 1.3; padding: 0.4rem 0.7rem; max-width: none; min-width: 0; overflow-wrap: anywhere; }
   .compact .bubble::after { left: -8px; bottom: auto; top: 50%; transform: translateY(-50%) rotate(135deg); }
 </style>

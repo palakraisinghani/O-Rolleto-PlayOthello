@@ -250,17 +250,17 @@ overlay_blur: 3px
 
 ## 18. Poker chips (start-of-game splash and win rain)
 
-At the start of every game chips burst across the screen three times: a ring of chips rushes in
-from beyond the edges to the middle, then flies straight back out. When someone wins, chips rain from the top while the result dialog is open. Both
+At the start of every game a ring of chips rushes in from beyond the edges to the middle, then
+flies straight back out. Raise chip_splash_bursts to repeat it. When someone wins, chips rain from the top while the result dialog is open. Both
 are switched off by Settings > Animations.
 
 ```tokens
 chip_colors: #b3202a, #1f8a46, #1f3f9a, #17171a, #d9a521, #6a2a8c   # comma separated: red, green, blue, black, gold, purple
 chip_notch: #f6f0e4                       # the white notches round the edge
 chip_size: 54px
-chip_splash_count: 24                     # chips in EACH burst of the opening splash (a plain number, no unit)
-chip_splash_bursts: 3                     # how many bursts (each: chips rush in to the middle, then fly back out)
-chip_splash_duration: 2.2s                # one burst, in and out (a number of seconds, ends in s)
+chip_splash_count: 144                    # chips in EACH burst of the opening splash (a plain number, no unit)
+chip_splash_bursts: 1                     # how many bursts (each: chips rush in to the middle, then fly back out)
+chip_splash_duration: 3.6s                # one burst, in and out (a number of seconds, ends in s; bigger = slower)
 chip_splash_burst_gap: 0.8s               # time from the start of one burst to the next
 chip_rain_count: 60                       # chips in the victory rain (a plain number)
 chip_rain_slowness: 1                     # 2 = chips fall twice as slowly

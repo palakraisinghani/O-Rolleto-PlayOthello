@@ -1,92 +1,189 @@
-// Orolleto, the card-room dealer: what he says and how he looks at each moment of a game.
-// Pure functions of the game state (plus a random source, so tests can pin the choice).
+// Orolleto, the card-room dealer: decides what he says and how he looks at each moment of the app.
+// The lines themselves live in dialogues.ts; this file chooses among them.
+//
+// Two kinds of randomness shape what you see:
+//  - which line: picked at random from a big pool, never one he said recently;
+//  - whether he speaks at all, for the optional comments on ordinary moves: `chattiness` is the
+//    chance that he comments on a plain move (0 = silent, 1 = every move). Corners and big flips are
+//    1.6x as likely to get a comment. Greetings, the start and the end of a game, passes, hints,
+//    undo and the review verdicts are always spoken.
 
 import type { Snapshot } from './api.ts';
+import { POOLS, type PoolName } from './dialogues.ts';
 
 export type Mood = 'idle' | 'think' | 'happy' | 'sad';
 export interface Line {
   say: string;
   mood: Mood;
 }
+export type Rng = () => number;
+export type Page = 'home' | 'setup-computer' | 'setup-two' | 'settings' | 'help';
 
 export const DEALER_NAME = 'Orolleto';
-
-type Rng = () => number;
-const pick = <T>(items: readonly T[], rng: Rng): T => items[Math.min(items.length - 1, Math.floor(rng() * items.length))];
+/** Default chance that he comments on an ordinary move. */
+export const DEFAULT_CHATTINESS = 0.55;
+/** How many of his latest lines of one kind he will not repeat. */
+export const DEFAULT_MEMORY = 8;
 
 const CORNERS = [0, 7, 56, 63];
+const SPECIAL_WEIGHT = 1.6;
 
-const WELCOME = [
-  "Welcome to the table. I'm Orolleto. Place your discs!",
-  'Cards are dealt, discs are cut. Your move, friend.',
-  'The house is open. Show me what you have.'
-];
-const WELCOME_TWO = ['Two players, one table. May the best disc win.', 'A friendly hand! I will keep the score.'];
-const THINKING = ['Hmm, let me think…', 'Studying the felt…', 'One moment, I am counting discs…', 'Interesting. Very interesting…'];
-const COMPUTER_CORNER = ['A corner. The house will take that.', 'Corner secured. House rules.'];
-const COMPUTER_BIG = ['Count them: that is a big flip!', 'Turn them over, all of them.'];
-const COMPUTER_PLAIN = ['Your turn.', 'The house plays.', 'Your move, friend.', "Let's see you answer that."];
-const HUMAN_CORNER = ['A corner! Nicely played.', 'Ooh, you took a corner. I felt that.'];
-const HUMAN_BIG = ['Whoa, that is a lot of discs!', 'Careful, you are cleaning me out.'];
-const PASS_HUMAN = ['No move for you, so I play again.'];
-const PASS_COMPUTER = ['I have to pass! Go again, friend.'];
-const WIN = ['You cleaned me out! Take a bow.', 'The house pays out. Well played!'];
-const LOSS = ['The house always wins… this time.', 'Better luck next hand, friend.'];
-const DRAW = ['A push! Honours even.'];
-const REVIEW_BEST = ['Perfect read. That is what I would play.', 'Spot on!'];
-const REVIEW_GOOD = ['Solid. A good player sees that.', 'A fine choice.'];
-const REVIEW_MISS = ['Ah, that one cost you a little.', 'Hmm, I would have looked elsewhere.'];
-const REVIEW_FORCED = ['No choice there, friend.'];
+/** A small deterministic random generator (mulberry32), so tests and the review can pin the choice. */
+export function seededRng(seed: number): Rng {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-export const welcome = (twoPlayers: boolean, rng: Rng = Math.random): Line => ({
-  say: pick(twoPlayers ? WELCOME_TWO : WELCOME, rng),
-  mood: 'happy'
-});
+export interface DealerOptions {
+  chattiness?: number;
+  rng?: Rng;
+  memory?: number;
+}
 
-export const thinking = (rng: Rng = Math.random): Line => ({ say: pick(THINKING, rng), mood: 'think' });
+export class Dealer {
+  readonly chattiness: number;
+  private readonly rng: Rng;
+  private readonly memory: number;
+  private readonly recent = new Map<PoolName, string[]>();
 
-export const passed = (humanPassed: boolean, rng: Rng = Math.random): Line => ({
-  say: pick(humanPassed ? PASS_HUMAN : PASS_COMPUTER, rng),
-  mood: humanPassed ? 'happy' : 'sad'
-});
-
-/** How the dealer reacts when the game moves from `prev` to `next`; null to stay quiet. */
-export function reactToMove(prev: Snapshot | null, next: Snapshot, rng: Rng = Math.random): Line | null {
-  if (!prev || next.mode.kind !== 'vs_computer' || next.ply <= prev.ply || next.last_move === null) return null;
-  if (next.status.state === 'over') return null; // the result has its own line
-  const mover = next.board[next.last_move] === 1 ? 'black' : 'white';
-  const byHuman = mover === next.mode.human;
-  const corner = CORNERS.includes(next.last_move);
-  const big = next.flipped.length >= 5;
-  if (byHuman) {
-    if (corner) return { say: pick(HUMAN_CORNER, rng), mood: 'sad' };
-    if (big) return { say: pick(HUMAN_BIG, rng), mood: 'sad' };
-    return null;
+  constructor(options: DealerOptions = {}) {
+    this.chattiness = Math.min(1, Math.max(0, options.chattiness ?? DEFAULT_CHATTINESS));
+    this.rng = options.rng ?? Math.random;
+    this.memory = options.memory ?? DEFAULT_MEMORY;
   }
-  if (corner) return { say: pick(COMPUTER_CORNER, rng), mood: 'happy' };
-  if (big) return { say: pick(COMPUTER_BIG, rng), mood: 'happy' };
-  return rng() < 0.4 ? { say: pick(COMPUTER_PLAIN, rng), mood: 'idle' } : null;
-}
 
-/** The dealer's line when a game ends. */
-export function reactToEnd(snap: Snapshot, rng: Rng = Math.random): Line {
-  if (snap.status.state !== 'over' || snap.status.winner === null) return { say: pick(DRAW, rng), mood: 'idle' };
-  if (snap.mode.kind !== 'vs_computer') return { say: pick(WIN, rng), mood: 'happy' };
-  return snap.status.winner === snap.mode.human
-    ? { say: pick(WIN, rng), mood: 'sad' }
-    : { say: pick(LOSS, rng), mood: 'happy' };
-}
+  /** A random line from `pool`, avoiding the ones used lately. */
+  private say(pool: PoolName, mood: Mood): Line {
+    const lines: readonly string[] = POOLS[pool];
+    const recent = this.recent.get(pool) ?? [];
+    const fresh = lines.filter((l) => !recent.includes(l));
+    const choices = fresh.length ? fresh : lines;
+    const say = choices[Math.min(choices.length - 1, Math.floor(this.rng() * choices.length))];
+    this.recent.set(pool, [...recent, say].slice(-Math.min(this.memory, lines.length - 1)));
+    return { say, mood };
+  }
 
-/** His comment on one reviewed move. */
-export function reviewLine(verdict: 'best' | 'good' | 'miss' | 'forced', rng: Rng = Math.random): Line {
-  switch (verdict) {
-    case 'best':
-      return { say: pick(REVIEW_BEST, rng), mood: 'happy' };
-    case 'good':
-      return { say: pick(REVIEW_GOOD, rng), mood: 'happy' };
-    case 'miss':
-      return { say: pick(REVIEW_MISS, rng), mood: 'sad' };
-    default:
-      return { say: pick(REVIEW_FORCED, rng), mood: 'idle' };
+  /** True with probability chattiness × weight. */
+  private chance(weight = 1): boolean {
+    return this.rng() < this.chattiness * weight;
+  }
+
+  // ------------------------------------------------------------------ pages
+
+  /** What he says on a menu page. */
+  page(page: Page): Line {
+    const pool: PoolName =
+      page === 'home' ? 'home' : page === 'setup-computer' ? 'setupComputer' : page === 'setup-two' ? 'setupTwo' : page;
+    return this.say(pool, 'happy');
+  }
+
+  // ------------------------------------------------------------------ in a game
+
+  /** The first words of a new game. */
+  start(snap: Snapshot): Line {
+    if (snap.mode.kind === 'two_players') return this.say('startTwo', 'happy');
+    return this.say(snap.awaiting === 'computer' ? 'startComputerFirst' : 'startComputer', 'happy');
+  }
+
+  /** While the computer works out its move. */
+  thinking(): Line {
+    return this.say('thinking', 'think');
+  }
+
+  /**
+   * His reaction when the game moves from `prev` to `next`, or null to stay quiet (always null in
+   * two-player games, and for most ordinary moves unless he is feeling chatty).
+   */
+  afterMove(prev: Snapshot | null, next: Snapshot): Line | null {
+    if (!prev || next.mode.kind !== 'vs_computer' || next.ply <= prev.ply || next.last_move === null) return null;
+    if (next.status.state === 'over') return null; // the result has its own line
+    const human = next.mode.human;
+    const byHuman = (next.board[next.last_move] === 1 ? 'black' : 'white') === human;
+    const mine = byHuman ? 'human' : 'computer';
+
+    if (CORNERS.includes(next.last_move)) {
+      return this.chance(SPECIAL_WEIGHT) ? this.say(byHuman ? 'humanCorner' : 'computerCorner', 'happy') : null;
+    }
+    if (next.flipped.length >= 5) {
+      return this.chance(SPECIAL_WEIGHT) ? this.say(byHuman ? 'humanBig' : 'computerBig', 'happy') : null;
+    }
+    if (!this.chance()) return null;
+
+    // An ordinary move: sometimes a remark about the move, sometimes about the state of the game.
+    const pools: PoolName[] = [mine === 'human' ? 'humanPlain' : 'computerPlain'];
+    if (next.ply <= 10) pools.push('opening');
+    else if (next.ply >= 24 && next.ply <= 40) pools.push('middle');
+    else if (next.ply >= 48) pools.push('ending');
+    if (next.ply >= 14) {
+      const diff = (human === 'black' ? next.black_count - next.white_count : next.white_count - next.black_count);
+      if (diff >= 8) pools.push('youLead');
+      else if (diff <= -8) pools.push('iLead');
+      else if (Math.abs(diff) <= 2 && next.ply >= 20) pools.push('close');
+    }
+    const pool = pools[Math.min(pools.length - 1, Math.floor(this.rng() * pools.length))];
+    return this.say(pool, mine === 'human' ? 'happy' : 'idle');
+  }
+
+  /** A forced pass was announced. */
+  passed(humanPassed: boolean): Line {
+    return this.say(humanPassed ? 'passHuman' : 'passComputer', 'happy');
+  }
+
+  hint(): Line {
+    return this.say('hint', 'happy');
+  }
+
+  undo(): Line {
+    return this.say('undo', 'happy');
+  }
+
+  /** The words at the end of a game (the snapshot's status must be "over"). */
+  end(snap: Snapshot): Line {
+    if (snap.mode.kind === 'two_players') return this.say('endTwo', 'happy');
+    const status = snap.status;
+    if (status.state !== 'over' || status.winner === null) return this.say('draw', 'happy');
+    if (status.resigned && status.winner !== snap.mode.human) return this.say('resigned', 'idle');
+    return this.say(status.winner === snap.mode.human ? 'youWin' : 'iWin', 'happy');
+  }
+
+  // ------------------------------------------------------------------ the review
+
+  /** Words on the first screen of the review, depending on how many moves matched his. */
+  reviewIntro(summary: { judged: number; hitRate: number | null } | null): Line {
+    if (!summary || summary.judged === 0 || summary.hitRate === null) return this.say('reviewEmpty', 'idle');
+    const pool: PoolName = summary.hitRate >= 0.75 ? 'reviewGreat' : summary.hitRate >= 0.45 ? 'reviewGood' : 'reviewKind';
+    return this.say(pool, 'happy');
+  }
+
+  reviewStart(): Line {
+    return this.say('reviewStart', 'happy');
+  }
+
+  /** His verdict on one of your moves. */
+  reviewMove(verdict: 'best' | 'good' | 'miss' | 'forced'): Line {
+    switch (verdict) {
+      case 'best':
+        return this.say('reviewBest', 'happy');
+      case 'good':
+        return this.say('reviewGoodMove', 'happy');
+      case 'miss':
+        return this.say('reviewMiss', 'idle');
+      default:
+        return this.say('reviewForced', 'idle');
+    }
+  }
+
+  /** An occasional word on a move of his own or a pass in the review (null when he is quiet). */
+  reviewOther(kind: 'mine' | 'pass'): Line | null {
+    return this.chance() ? this.say(kind === 'mine' ? 'reviewMine' : 'reviewPass', 'idle') : null;
   }
 }
+
+/** The one dealer the app talks through. */
+export const dealer = new Dealer();

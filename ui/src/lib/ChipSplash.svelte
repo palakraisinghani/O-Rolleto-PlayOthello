@@ -1,5 +1,6 @@
-<!-- Start of a game: poker chips burst across the screen three times. In each burst a ring of chips
-     rushes in from beyond the edges to the middle of the table, then flies straight back out.
+<!-- Start of a game: poker chips burst across the screen. In a burst a ring of chips rushes in from
+     beyond the edges to the middle of the table, then flies straight back out (once by default; the
+     number of bursts is a design.md token).
      Counts, colours, size and timing come from design.md (section 18).
      Calls `ondone` when the last chip has left so the parent can remove it. -->
 <script lang="ts">
@@ -10,12 +11,12 @@
   const css = getComputedStyle(document.documentElement);
   const num = (name: string, fallback: number) => Number.parseFloat(css.getPropertyValue(name)) || fallback;
   const COLORS = css.getPropertyValue('--d-chip-colors').split(',').map((c) => c.trim()).filter(Boolean);
-  const PER_BURST = Math.max(0, Math.round(num('--d-chip-splash-count', 24)));
-  const BURSTS = Math.max(1, Math.round(num('--d-chip-splash-bursts', 3)));
-  const DURATION = num('--d-chip-splash-duration', 2.2); // seconds for one burst (in and out)
+  const PER_BURST = Math.max(0, Math.round(num('--d-chip-splash-count', 144)));
+  const BURSTS = Math.max(1, Math.round(num('--d-chip-splash-bursts', 1)));
+  const DURATION = num('--d-chip-splash-duration', 3.6); // seconds for one burst (in and out)
   const GAP = num('--d-chip-splash-burst-gap', 0.8); // seconds between the starts of two bursts
   const VALUES = ['5', '10', '25', '50', '100', '500'];
-  const JITTER = 0.25; // chips of one burst do not leave in perfect lockstep
+  const JITTER = 0.6; // chips of one burst do not leave in perfect lockstep
 
   const rand = (min: number, max: number) => min + Math.random() * (max - min);
 

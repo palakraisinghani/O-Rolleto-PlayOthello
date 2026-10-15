@@ -6,7 +6,7 @@
   import { squareName, type Side, type Snapshot } from './api';
   import Board, { type Mark } from './Board.svelte';
   import Croupier from './Croupier.svelte';
-  import { reviewLine, type Line } from './dealer';
+  import { Dealer, seededRng, type Line } from './dealer';
   import Icon from './Icon.svelte';
   import { PASS, Position } from './engine/position.ts';
   import { REVIEW_TOP_K, REVIEW_TOP_P, reviewGame, type Review, type ReviewStep, type Verdict } from './engine/review.ts';
@@ -139,12 +139,16 @@
 
   const sum = $derived(review?.summary);
 
-  /** Orolleto's comment on the move on screen. The pick is fixed per step, so it does not change on re-render. */
+  /** Orolleto's comment on the screen: fixed for each step (seeded), so it does not change when you come back. */
+  const salt = Math.floor(Math.random() * 1_000_000_000);
   const comment = $derived.by<Line | null>(() => {
-    const f = step?.feedback;
-    if (!f) return null;
-    const rng = () => Math.abs(Math.sin((index + 1) * 12.9898) * 43758.5453) % 1;
-    return reviewLine(f.verdict, rng);
+    if (!review) return null;
+    const talker = new Dealer({ rng: seededRng(salt + index * 7919) });
+    if (index === 0) return talker.reviewIntro(review.summary);
+    const st = step;
+    if (!st) return null;
+    if (st.feedback) return talker.reviewMove(st.feedback.verdict);
+    return talker.reviewOther(st.move === PASS ? 'pass' : 'mine');
   });
 </script>
 
@@ -186,7 +190,7 @@
     <h2>{note.head}</h2>
     {#each note.lines as line}<p>{line}</p>{/each}
     {#if step}<p class="ply">Move {index} of {last}</p>{/if}
-    {#if comment}<div class="quip"><Croupier compact width="3rem" mood={comment.mood} say={comment.say} /></div>{/if}
+    {#if comment}<div class="quip"><Croupier compact width="5rem" mood={comment.mood} say={comment.say} /></div>{/if}
   </section>
 
   <div class="controls">

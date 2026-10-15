@@ -1,12 +1,13 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import * as api from './lib/api';
   import type { GameEvent, HumanSide, Mode, Settings, Side, Snapshot } from './lib/api';
   import Board from './lib/Board.svelte';
   import ChipRain from './lib/ChipRain.svelte';
   import ChipSplash from './lib/ChipSplash.svelte';
   import Croupier from './lib/Croupier.svelte';
-  import * as orolleto from './lib/dealer';
+  import DealerSlot from './lib/DealerSlot.svelte';
+  import { DEALER_NAME, dealer as orolleto, type Line } from './lib/dealer';
   import Icon from './lib/Icon.svelte';
   import Lights from './lib/Lights.svelte';
   import Review from './lib/Review.svelte';
@@ -30,9 +31,10 @@
   let splashKey = $state(0);
   let splashing = $state(false);
 
-  /** What Orolleto, the dealer, is saying and how he looks. */
-  let dealer = $state<orolleto.Line>({ say: '', mood: 'idle' });
-  const greeting = orolleto.welcome(false).say;
+  /** What Orolleto is saying and how he looks. */
+  let speech = $state<Line>({ say: '', mood: 'idle' });
+  /** After a pass announcement the next state change must not talk over it. */
+  let holdSpeech = false;
 
   // Setup form
   let difficulty = $state(2);
@@ -51,22 +53,27 @@
     if (snap.mode.kind === 'two_players') {
       return (s === 'black' ? snap.mode.black_name : snap.mode.white_name) || label(s);
     }
-    return snap.mode.human === s ? `${label(s)} (you)` : `${label(s)} (computer)`;
+    return snap.mode.human === s ? `${label(s)} (you)` : `${label(s)} (${DEALER_NAME})`;
   }
 
-  /** Orolleto's reaction to the game moving on (only against the computer). */
+  /** Orolleto's reaction to the game moving on. */
   function reactDealer(prev: Snapshot | null, next: Snapshot) {
-    if (next.mode.kind !== 'vs_computer') return;
-    if (next.status.state === 'over') {
-      dealer = orolleto.reactToEnd(next);
+    if (holdSpeech) {
+      holdSpeech = false;
       return;
     }
-    const reaction = orolleto.reactToMove(prev, next);
+    if (prev && next.ply < prev.ply) return; // an undo: its own line is set by the button
+    if (next.status.state === 'over') {
+      speech = orolleto.end(next);
+      return;
+    }
+    if (next.mode.kind !== 'vs_computer') return;
+    const reaction = orolleto.afterMove(prev, next);
     if (next.awaiting === 'computer') {
-      if (reaction) dealer = reaction;
-      else if (prev?.awaiting !== 'computer') dealer = orolleto.thinking();
+      if (reaction) speech = reaction;
+      else if (prev?.awaiting !== 'computer') speech = orolleto.thinking();
     } else {
-      dealer = reaction ?? { say: '', mood: 'idle' };
+      speech = reaction ?? { say: '', mood: 'idle' };
     }
   }
 
@@ -78,7 +85,10 @@
       if (e.snapshot.awaiting !== 'computer') thinking = null;
       reactDealer(prev, e.snapshot);
     } else if (e.type === 'passed') {
-      if (snap?.mode.kind === 'vs_computer') dealer = orolleto.passed(snap.mode.human === e.side);
+      if (snap?.mode.kind === 'vs_computer') {
+        speech = orolleto.passed(snap.mode.human === e.side);
+        holdSpeech = true;
+      }
       banner = `${label(e.side)} has no legal move — ${label(other(e.side))} plays again`;
       clearTimeout(bannerTimer);
       bannerTimer = setTimeout(() => (banner = ''), 3500);
@@ -102,7 +112,8 @@
     const s = await run(() => api.newGame(mode));
     if (s) {
       snap = s;
-      dealer = s.awaiting === 'computer' ? orolleto.thinking() : orolleto.welcome(mode.kind === 'two_players');
+      holdSpeech = false;
+      speech = orolleto.start(s);
       screen = 'game';
       if (settings.animations) {
         splashKey += 1;
@@ -122,7 +133,10 @@
 
   async function doUndo() {
     const s = await run(api.undo);
-    if (s) snap = s;
+    if (s) {
+      snap = s;
+      speech = orolleto.undo();
+    }
   }
 
   async function doResign() {
@@ -132,7 +146,10 @@
 
   async function doHint() {
     const sq = await run(api.hint);
-    if (sq !== undefined) hintSquare = sq;
+    if (sq !== undefined) {
+      hintSquare = sq;
+      speech = orolleto.hint();
+    }
   }
 
   function rematch(swap: boolean) {
@@ -152,6 +169,12 @@
   async function saveSettings() {
     await run(() => api.setSettings($state.snapshot(settings) as Settings));
   }
+
+  // Each menu page gets its own words from Orolleto.
+  $effect(() => {
+    const page = screen;
+    if (page !== 'game' && page !== 'review') untrack(() => (speech = orolleto.page(page)));
+  });
 
   $effect(() => {
     const root = document.documentElement;
@@ -186,7 +209,7 @@
     if (snap.mode.kind === 'vs_computer') {
       const won = over.winner === snap.mode.human;
       return {
-        headline: won ? 'You win!' : 'Computer wins',
+        headline: won ? 'You win!' : `${DEALER_NAME} wins`,
         detail: over.resigned ? 'You resigned' : won ? 'Well played' : 'Better luck next hand'
       };
     }
@@ -209,7 +232,7 @@
       </div>
       <h1 class="neon logo">Othello</h1>
       <p class="tagline">Place your discs · Take the table</p>
-      <div class="home-dealer"><Croupier width="9.5rem" mood="happy" say={greeting} /></div>
+      <DealerSlot mood={speech.mood} say={speech.say} />
       <nav class="menu">
         <button class="btn primary" onclick={() => (screen = 'setup-computer')}>Play vs Computer</button>
         <button class="btn" onclick={() => (screen = 'setup-two')}>Two Players</button>
@@ -219,6 +242,7 @@
     </section>
   {:else if screen === 'setup-computer'}
     <h1 class="neon title">Play vs Computer</h1>
+    <DealerSlot mood={speech.mood} say={speech.say} />
     <form class="plaque panel" onsubmit={(e) => { e.preventDefault(); startComputer(); }}>
       <label>Difficulty
         <select bind:value={difficulty}>
@@ -240,6 +264,7 @@
     </form>
   {:else if screen === 'setup-two'}
     <h1 class="neon title">Two Players</h1>
+    <DealerSlot mood={speech.mood} say={speech.say} />
     <form class="plaque panel" onsubmit={(e) => { e.preventDefault(); startTwo(); }}>
       <label>Black <input bind:value={blackName} placeholder="Black" /></label>
       <label>White <input bind:value={whiteName} placeholder="White" /></label>
@@ -251,6 +276,7 @@
     </form>
   {:else if screen === 'settings'}
     <h1 class="neon title">Settings</h1>
+    <DealerSlot mood={speech.mood} say={speech.say} />
     <div class="plaque panel">
       <label><span>Show legal moves</span><input type="checkbox" bind:checked={settings.show_legal_moves} onchange={saveSettings} /></label>
       <label><span>Animations</span><input type="checkbox" bind:checked={settings.animations} onchange={saveSettings} /></label>
@@ -271,6 +297,7 @@
     </div>
   {:else if screen === 'help'}
     <h1 class="neon title">How to Play</h1>
+    <DealerSlot mood={speech.mood} say={speech.say} />
     <div class="plaque panel prose">
       <p>Black moves first. Place a disc so that it traps one or more of your opponent's discs in a straight line (any direction) between the new disc and another of your own. Trapped discs flip to your colour.</p>
       <p>You must flip at least one disc. If you have no legal move you pass, and the other player plays again. The game ends when neither player can move or the board is full. Most discs wins.</p>
@@ -282,7 +309,7 @@
     <div class="game">
       <header class="topbar">
         <button class="btn icon" onclick={() => (screen = 'home')} aria-label="Home"><Icon name="home" /></button>
-        <div class="dealer-top"><Croupier compact width="2.9rem" mood={dealer.mood} say={dealer.say} /></div>
+        <div class="dealer-top"><Croupier compact width="4.4rem" mood={speech.mood} say={speech.say} /></div>
       </header>
 
       <section class="scoreboard" aria-label="Score">
@@ -299,7 +326,7 @@
 
       <p class="status" role="status" aria-live="polite">
         {#if over}Game over
-        {:else if snap.awaiting === 'computer'}<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span> Computer is thinking{#if thinking !== null && thinking < 1} · {Math.round(thinking * 100)}%{/if}
+        {:else if snap.awaiting === 'computer'}<span class="dots" aria-hidden="true"><i></i><i></i><i></i></span> {DEALER_NAME} is thinking{#if thinking !== null && thinking < 1} · {Math.round(thinking * 100)}%{/if}
         {:else}{playerName(snap.to_move)} to move{/if}
       </p>
 
@@ -328,7 +355,7 @@
         </div>
       </div>
 
-      <div class="dealer-wide"><Croupier width="clamp(6rem, 10vw, 8rem)" mood={dealer.mood} say={dealer.say} /></div>
+      <div class="dealer-wide"><Croupier width="clamp(9rem, 16vw, 14rem)" mood={speech.mood} say={speech.say} /></div>
 
       <p class="history">{snap.history.join(' · ')}</p>
     </div>
@@ -341,9 +368,7 @@
       {#if celebrate && settings.animations}<ChipRain />{/if}
       <div class="overlay">
         <div class="plaque dialog" role="dialog" aria-label="Game result">
-          {#if snap.mode.kind === 'vs_computer'}
-            <div class="dialog-dealer"><Croupier width="6rem" mood={dealer.mood} say={dealer.say} /></div>
-          {/if}
+          <div class="dialog-dealer"><Croupier width="9rem" mood={speech.mood} say={speech.say} /></div>
           <h2 class="neon result">{result.headline}</h2>
           {#if result.detail}<p class="detail">{result.detail}</p>{/if}
           <p class="final"><span class="chip black"></span> {snap.black_count} – {snap.white_count} <span class="chip white"></span></p>
@@ -520,15 +545,11 @@
     grid-template-areas: 'top' 'score' 'status' 'stage' 'controls' 'history';
   }
   .game > * { margin: 0; min-width: 0; }
-  .topbar { grid-area: top; }
+  /* Room for the little dealer and up to four lines of his bubble, so the board does not jump when he talks. */
+  .topbar { grid-area: top; min-height: 5.6rem; }
   .dealer-top { flex: 1; min-width: 0; display: flex; justify-content: flex-end; }
   .dealer-wide { display: none; grid-area: dealer; justify-self: center; }
   .dialog-dealer { display: flex; justify-content: center; margin: 0 0 1.4rem; }
-  /* The dealer waits at the corner of the home screen when the window is roomy enough. */
-  .home-dealer { display: none; }
-  @media (min-width: 900px) and (min-height: 620px) {
-    .home-dealer { display: block; position: fixed; left: calc(var(--edge-band) + 1.2rem); bottom: calc(var(--edge-band) + 0.6rem); z-index: 2; }
-  }
   .scoreboard { grid-area: score; }
   .status { grid-area: status; }
   .stage { grid-area: stage; min-height: 0; container-type: size; display: grid; place-items: center; }
@@ -543,14 +564,15 @@
       grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
       grid-template-areas: 'stage top' 'stage score' 'stage status' 'stage controls' 'stage dealer' 'stage history';
     }
+    .topbar { min-height: 0; }
     .dealer-top { display: none; }
-    .dealer-wide { display: block; }
+    .dealer-wide { display: block; max-width: 100%; }
     .scoreboard { grid-template-columns: 1fr; }
     .controls { gap: 1rem; }
     .history { overflow-y: auto; align-self: start; max-height: 100%; }
   }
   /* Wide but short: the big dealer would not fit, so the little one rejoins the top bar. */
-  @media (min-aspect-ratio: 5/4) and (max-height: 760px) {
+  @media (min-aspect-ratio: 5/4) and (max-height: 840px) {
     .dealer-top { display: flex; }
     .dealer-wide { display: none; }
   }
