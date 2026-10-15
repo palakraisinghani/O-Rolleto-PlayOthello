@@ -5,6 +5,8 @@
   import { onMount } from 'svelte';
   import { squareName, type Side, type Snapshot } from './api';
   import Board, { type Mark } from './Board.svelte';
+  import Croupier from './Croupier.svelte';
+  import { reviewLine, type Line } from './dealer';
   import Icon from './Icon.svelte';
   import { PASS, Position } from './engine/position.ts';
   import { REVIEW_TOP_K, REVIEW_TOP_P, reviewGame, type Review, type ReviewStep, type Verdict } from './engine/review.ts';
@@ -136,6 +138,14 @@
   });
 
   const sum = $derived(review?.summary);
+
+  /** Orolleto's comment on the move on screen. The pick is fixed per step, so it does not change on re-render. */
+  const comment = $derived.by<Line | null>(() => {
+    const f = step?.feedback;
+    if (!f) return null;
+    const rng = () => Math.abs(Math.sin((index + 1) * 12.9898) * 43758.5453) % 1;
+    return reviewLine(f.verdict, rng);
+  });
 </script>
 
 <svelte:window onkeydown={onKey} />
@@ -176,6 +186,7 @@
     <h2>{note.head}</h2>
     {#each note.lines as line}<p>{line}</p>{/each}
     {#if step}<p class="ply">Move {index} of {last}</p>{/if}
+    {#if comment}<div class="quip"><Croupier compact width="3rem" mood={comment.mood} say={comment.say} /></div>{/if}
   </section>
 
   <div class="controls">
@@ -222,10 +233,11 @@
   .controls { grid-area: controls; display: flex; gap: 0.8rem; justify-content: center; align-items: center; flex-wrap: wrap; }
   .strip { grid-area: strip; display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: center; max-height: 5.2rem; overflow-y: auto; }
 
+  .summary p, .note p { font-variant-numeric: lining-nums; }
   .summary p { margin: 0; }
   .score strong { font-family: var(--d-font-serif); font-size: 1.9rem; font-weight: 900; color: var(--d-scoreboard-count-color); text-shadow: 0 0 10px var(--d-scoreboard-count-glow); margin-right: 0.4rem; }
   .score span { font-family: var(--d-font-serif); font-weight: 700; }
-  .tally { display: flex; gap: 0.9rem; justify-content: center; flex-wrap: wrap; margin-top: 0.3rem !important; font-family: var(--d-font-serif); font-weight: 700; font-size: 0.9rem; }
+  .tally { font-variant-numeric: lining-nums; display: flex; gap: 0.9rem; justify-content: center; flex-wrap: wrap; margin-top: 0.3rem !important; font-family: var(--d-font-serif); font-weight: 700; font-size: 0.9rem; }
   .t.best { color: var(--d-review-best-color); }
   .t.good { color: var(--d-review-good-color); }
   .t.miss { color: var(--d-review-miss-color); }
@@ -234,13 +246,14 @@
 
   .note h2 { margin: 0 0 0.2rem; font-family: var(--d-font-serif); font-size: 1.15rem; }
   .note p { margin: 0.15rem 0 0; line-height: 1.4; font-size: 0.92rem; }
+  .quip { margin-top: 0.5rem; }
   .note .ply { opacity: 0.7; font-size: 0.78rem; }
   .note.best h2 { color: var(--d-review-best-color); }
   .note.good h2 { color: var(--d-review-good-color); }
   .note.miss h2 { color: var(--d-review-miss-color); }
 
   .pill {
-    font-family: var(--d-font-serif); font-weight: 900; font-size: 0.78rem;
+    font-family: var(--d-font-serif); font-weight: 900; font-size: 0.78rem; font-variant-numeric: lining-nums;
     padding: 0.25rem 0.55rem; border-radius: 999px; cursor: pointer;
     color: #1a0f08; background: var(--d-review-suggest-color);
     border: 2px solid rgba(0, 0, 0, 0.55);

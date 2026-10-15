@@ -30,7 +30,7 @@ the screen at the start of a game and rain down when someone wins.
 
 Sections go from the outside in: neon lights, the room, border lighting, text, brass and velvet, buttons,
 icon buttons, option boxes, scoreboard, board frame, bulbs, board surface, discs, disc
-animations, hints, banners and dialogs, poker chips, the roulette wheel, the game review.
+animations, hints, banners and dialogs, poker chips, the roulette wheel, the game review, Orolleto the dealer.
 
 ---
 
@@ -250,16 +250,18 @@ overlay_blur: 3px
 
 ## 18. Poker chips (start-of-game splash and win rain)
 
-At the start of every game chips fly in from the edges and splash across the screen, bounce
-and fade. When someone wins, chips rain from the top while the result dialog is open. Both
+At the start of every game chips burst across the screen three times: a ring of chips rushes in
+from beyond the edges to the middle, then flies straight back out. When someone wins, chips rain from the top while the result dialog is open. Both
 are switched off by Settings > Animations.
 
 ```tokens
 chip_colors: #b3202a, #1f8a46, #1f3f9a, #17171a, #d9a521, #6a2a8c   # comma separated: red, green, blue, black, gold, purple
 chip_notch: #f6f0e4                       # the white notches round the edge
 chip_size: 54px
-chip_splash_count: 34                     # chips in the opening splash (a plain number, no unit)
-chip_splash_duration: 2.8s                # how long the splash lasts (a number of seconds, ends in s)
+chip_splash_count: 24                     # chips in EACH burst of the opening splash (a plain number, no unit)
+chip_splash_bursts: 3                     # how many bursts (each: chips rush in to the middle, then fly back out)
+chip_splash_duration: 2.2s                # one burst, in and out (a number of seconds, ends in s)
+chip_splash_burst_gap: 0.8s               # time from the start of one burst to the next
 chip_rain_count: 60                       # chips in the victory rain (a plain number)
 chip_rain_slowness: 1                     # 2 = chips fall twice as slowly
 ```
@@ -286,4 +288,24 @@ review_good_color: #3ddc84                # your move was among its best few
 review_miss_color: #ff5a5a                # your move was not among them
 review_suggest_color: var(--d-neon-cyan)  # the computer's other preferred squares
 review_badge_size: 46%                    # badge diameter, as a share of one square
+```
+
+## 21. Orolleto, the dealer
+
+The card-room dealer who greets you, reacts to the game and comments in the review. He is drawn
+in code, so these colours are all there is to tune. Switch him and his animations off with
+Settings > Animations (he still appears, standing still).
+
+```tokens
+croupier_skin: #f0c9a0
+croupier_hair: #1b120d
+croupier_jacket: #15110f
+croupier_lapel: #2c2420
+croupier_shirt: #fff4e0
+croupier_tie: #a3182a                     # bow tie (red velvet)
+croupier_visor: rgba(31, 138, 70, 0.9)    # the green dealer's eyeshade
+croupier_chip: #b3202a                    # the chip he flips
+croupier_bubble_bg: #fff4e0               # speech bubble
+croupier_bubble_text: #2a170c
+croupier_bubble_border: var(--d-brass)
 ```

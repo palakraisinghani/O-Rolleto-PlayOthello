@@ -5,6 +5,8 @@
   import Board from './lib/Board.svelte';
   import ChipRain from './lib/ChipRain.svelte';
   import ChipSplash from './lib/ChipSplash.svelte';
+  import Croupier from './lib/Croupier.svelte';
+  import * as orolleto from './lib/dealer';
   import Icon from './lib/Icon.svelte';
   import Lights from './lib/Lights.svelte';
   import Review from './lib/Review.svelte';
@@ -28,6 +30,10 @@
   let splashKey = $state(0);
   let splashing = $state(false);
 
+  /** What Orolleto, the dealer, is saying and how he looks. */
+  let dealer = $state<orolleto.Line>({ say: '', mood: 'idle' });
+  const greeting = orolleto.welcome(false).say;
+
   // Setup form
   let difficulty = $state(2);
   let human = $state<HumanSide>('black');
@@ -48,12 +54,31 @@
     return snap.mode.human === s ? `${label(s)} (you)` : `${label(s)} (computer)`;
   }
 
+  /** Orolleto's reaction to the game moving on (only against the computer). */
+  function reactDealer(prev: Snapshot | null, next: Snapshot) {
+    if (next.mode.kind !== 'vs_computer') return;
+    if (next.status.state === 'over') {
+      dealer = orolleto.reactToEnd(next);
+      return;
+    }
+    const reaction = orolleto.reactToMove(prev, next);
+    if (next.awaiting === 'computer') {
+      if (reaction) dealer = reaction;
+      else if (prev?.awaiting !== 'computer') dealer = orolleto.thinking();
+    } else {
+      dealer = reaction ?? { say: '', mood: 'idle' };
+    }
+  }
+
   function onEvent(e: GameEvent) {
     if (e.type === 'state_changed') {
+      const prev = snap;
       snap = e.snapshot;
       hintSquare = null;
       if (e.snapshot.awaiting !== 'computer') thinking = null;
+      reactDealer(prev, e.snapshot);
     } else if (e.type === 'passed') {
+      if (snap?.mode.kind === 'vs_computer') dealer = orolleto.passed(snap.mode.human === e.side);
       banner = `${label(e.side)} has no legal move — ${label(other(e.side))} plays again`;
       clearTimeout(bannerTimer);
       bannerTimer = setTimeout(() => (banner = ''), 3500);
@@ -77,6 +102,7 @@
     const s = await run(() => api.newGame(mode));
     if (s) {
       snap = s;
+      dealer = s.awaiting === 'computer' ? orolleto.thinking() : orolleto.welcome(mode.kind === 'two_players');
       screen = 'game';
       if (settings.animations) {
         splashKey += 1;
@@ -183,6 +209,7 @@
       </div>
       <h1 class="neon logo">Othello</h1>
       <p class="tagline">Place your discs · Take the table</p>
+      <div class="home-dealer"><Croupier width="9.5rem" mood="happy" say={greeting} /></div>
       <nav class="menu">
         <button class="btn primary" onclick={() => (screen = 'setup-computer')}>Play vs Computer</button>
         <button class="btn" onclick={() => (screen = 'setup-two')}>Two Players</button>
@@ -255,7 +282,7 @@
     <div class="game">
       <header class="topbar">
         <button class="btn icon" onclick={() => (screen = 'home')} aria-label="Home"><Icon name="home" /></button>
-        <span class="neon mini">Othello</span>
+        <div class="dealer-top"><Croupier compact width="2.9rem" mood={dealer.mood} say={dealer.say} /></div>
       </header>
 
       <section class="scoreboard" aria-label="Score">
@@ -301,6 +328,8 @@
         </div>
       </div>
 
+      <div class="dealer-wide"><Croupier width="clamp(6rem, 10vw, 8rem)" mood={dealer.mood} say={dealer.say} /></div>
+
       <p class="history">{snap.history.join(' · ')}</p>
     </div>
 
@@ -312,6 +341,9 @@
       {#if celebrate && settings.animations}<ChipRain />{/if}
       <div class="overlay">
         <div class="plaque dialog" role="dialog" aria-label="Game result">
+          {#if snap.mode.kind === 'vs_computer'}
+            <div class="dialog-dealer"><Croupier width="6rem" mood={dealer.mood} say={dealer.say} /></div>
+          {/if}
           <h2 class="neon result">{result.headline}</h2>
           {#if result.detail}<p class="detail">{result.detail}</p>{/if}
           <p class="final"><span class="chip black"></span> {snap.black_count} – {snap.white_count} <span class="chip white"></span></p>
@@ -489,6 +521,14 @@
   }
   .game > * { margin: 0; min-width: 0; }
   .topbar { grid-area: top; }
+  .dealer-top { flex: 1; min-width: 0; display: flex; justify-content: flex-end; }
+  .dealer-wide { display: none; grid-area: dealer; justify-self: center; }
+  .dialog-dealer { display: flex; justify-content: center; margin: 0 0 1.4rem; }
+  /* The dealer waits at the corner of the home screen when the window is roomy enough. */
+  .home-dealer { display: none; }
+  @media (min-width: 900px) and (min-height: 620px) {
+    .home-dealer { display: block; position: fixed; left: calc(var(--edge-band) + 1.2rem); bottom: calc(var(--edge-band) + 0.6rem); z-index: 2; }
+  }
   .scoreboard { grid-area: score; }
   .status { grid-area: status; }
   .stage { grid-area: stage; min-height: 0; container-type: size; display: grid; place-items: center; }
@@ -500,12 +540,19 @@
     .game {
       gap: 0.7rem 1.6rem;
       grid-template-columns: minmax(0, 1fr) clamp(15rem, 30vw, 21rem);
-      grid-template-rows: auto auto auto auto minmax(0, 1fr);
-      grid-template-areas: 'stage top' 'stage score' 'stage status' 'stage controls' 'stage history';
+      grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+      grid-template-areas: 'stage top' 'stage score' 'stage status' 'stage controls' 'stage dealer' 'stage history';
     }
+    .dealer-top { display: none; }
+    .dealer-wide { display: block; }
     .scoreboard { grid-template-columns: 1fr; }
     .controls { gap: 1rem; }
     .history { overflow-y: auto; align-self: start; max-height: 100%; }
+  }
+  /* Wide but short: the big dealer would not fit, so the little one rejoins the top bar. */
+  @media (min-aspect-ratio: 5/4) and (max-height: 760px) {
+    .dealer-top { display: flex; }
+    .dealer-wide { display: none; }
   }
   /* Short windows: drop the least important line to give the board room. */
   @media (max-height: 640px) { .history { display: none; } }

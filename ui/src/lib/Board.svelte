@@ -197,6 +197,7 @@
     place-items: center;
     border-radius: 50%;
     font: 900 clamp(0.6rem, calc(var(--s) * 0.032), 1.15rem) / 1 var(--d-font-serif);
+    font-variant-numeric: lining-nums;
     color: #1a0f08;
     background: var(--c);
     border: 2px solid rgba(0, 0, 0, 0.55);
