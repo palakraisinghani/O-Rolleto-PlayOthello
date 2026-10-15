@@ -1,6 +1,6 @@
 <!-- Line icons for the round control buttons. They take their colour from the button (currentColor). -->
 <script lang="ts">
-  let { name }: { name: 'home' | 'undo' | 'hint' | 'resign' | 'new' | 'back' } = $props();
+  let { name }: { name: 'home' | 'undo' | 'hint' | 'resign' | 'new' | 'back' | 'next' | 'first' | 'last' } = $props();
 </script>
 
 <svg viewBox="0 0 24 24" width="52%" height="52%" fill="none" stroke="currentColor" stroke-width="2.2"
@@ -18,5 +18,11 @@
     <circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" />
   {:else if name === 'back'}
     <path d="M15 5 8 12l7 7" />
+  {:else if name === 'next'}
+    <path d="M9 5l7 7-7 7" />
+  {:else if name === 'first'}
+    <path d="M6 5v14" /><path d="M18 5l-7 7 7 7" />
+  {:else if name === 'last'}
+    <path d="M18 5v14" /><path d="M6 5l7 7-7 7" />
   {/if}
 </svg>

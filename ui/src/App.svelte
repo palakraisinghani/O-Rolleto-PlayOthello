@@ -7,8 +7,9 @@
   import ChipSplash from './lib/ChipSplash.svelte';
   import Icon from './lib/Icon.svelte';
   import Lights from './lib/Lights.svelte';
+  import Review from './lib/Review.svelte';
 
-  type Screen = 'home' | 'setup-computer' | 'setup-two' | 'game' | 'settings' | 'help';
+  type Screen = 'home' | 'setup-computer' | 'setup-two' | 'game' | 'review' | 'settings' | 'help';
 
   let screen = $state<Screen>('home');
   let snap = $state<Snapshot | null>(null);
@@ -169,7 +170,7 @@
 
 <Lights />
 
-<main class:in-game={screen === 'game'}>
+<main class:in-game={screen === 'game' || screen === 'review'}>
   {#if screen === 'home'}
     <section class="home">
       <div class="hero" aria-hidden="true">
@@ -248,6 +249,8 @@
       <p>You must flip at least one disc. If you have no legal move you pass, and the other player plays again. The game ends when neither player can move or the board is full. Most discs wins.</p>
       <div class="row"><button class="btn small" onclick={() => (screen = 'home')}>Back</button></div>
     </div>
+  {:else if screen === 'review' && snap}
+    <Review {snap} onclose={() => (screen = 'game')} />
   {:else if screen === 'game' && snap}
     <div class="game">
       <header class="topbar">
@@ -314,6 +317,9 @@
           <p class="final"><span class="chip black"></span> {snap.black_count} – {snap.white_count} <span class="chip white"></span></p>
           <div class="row">
             <button class="btn primary" onclick={() => rematch(false)}>Rematch</button>
+            {#if snap.mode.kind === 'vs_computer' && snap.history.length > 0}
+              <button class="btn" onclick={() => (screen = 'review')}>Review game</button>
+            {/if}
             <button class="btn" onclick={() => rematch(true)}>Swap colours</button>
             <button class="btn" onclick={() => (screen = 'home')}>Home</button>
           </div>

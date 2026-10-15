@@ -192,6 +192,31 @@ export function greedyBest(p: Position): number[] {
   return legal.filter((_, i) => values[i] === top);
 }
 
+export interface RankedMove {
+  move: number;
+  /** Search value for the side to move; higher is better. Only differences are meaningful. */
+  score: number;
+}
+
+/**
+ * Every legal placement scored by a full-window search, best first (equal scores keep square order).
+ * Unlike `chooseMove` nothing is pruned at the root, so each move gets its true value at this depth.
+ * Positions with few empty squares are searched to the end of the game. Deterministic.
+ */
+export function rankMoves(position: Position, depth = 4): RankedMove[] {
+  const b = toBoard(position);
+  const me = code(position.toMove);
+  let empties = 0;
+  for (let i = 0; i < 64; i++) if (b[i] === 0) empties++;
+  const plies = empties <= 6 ? 64 : depth;
+  const clock = { nodes: 0, deadline: Infinity };
+  const ranked = movesOf(b, me).map((move) => ({
+    move,
+    score: -negamax(play(b, move, me, flipsAt(b, move, me)), 3 - me, plies - 1, -Infinity, Infinity, false, clock)
+  }));
+  return ranked.sort((x, y) => y.score - x.score || x.move - y.move);
+}
+
 /** Time budget for the strongest level, in milliseconds. */
 export const LEVEL4_BUDGET_MS = 900;
 

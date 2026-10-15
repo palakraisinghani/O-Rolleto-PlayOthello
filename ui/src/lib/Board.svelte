@@ -1,5 +1,13 @@
 <!-- The board: walnut frame with chasing marquee bulbs, oak squares, glossy 3D discs.
      It only renders the snapshot it is given; all rules live in the engine. -->
+<script lang="ts" module>
+  /** A small badge on a square (used by the game review). */
+  export interface Mark {
+    text: string;
+    kind: 'best' | 'good' | 'miss' | 'suggest';
+  }
+</script>
+
 <script lang="ts">
   import { squareName, type Snapshot } from './api';
 
@@ -7,12 +15,14 @@
     snap,
     showLegal,
     hintSquare,
-    onSquare
+    onSquare,
+    marks = {}
   }: {
     snap: Snapshot;
     showLegal: boolean;
     hintSquare: number | null;
     onSquare: (square: number) => void;
+    marks?: Record<number, Mark>;
   } = $props();
 
   const cells = Array.from({ length: 64 }, (_, i) => i);
@@ -27,7 +37,7 @@
   }
 
   const describe = (i: number, cell: number) =>
-    `${squareName(i)}${cell === 1 ? ', black' : cell === 2 ? ', white' : ', empty'}`;
+    `${squareName(i)}${cell === 1 ? ', black' : cell === 2 ? ', white' : ', empty'}${marks[i] ? `, ${marks[i].kind} ${marks[i].text}` : ''}`;
 </script>
 
 <div class="frame">
@@ -65,6 +75,7 @@
           <span class="ring"></span>
         {/if}
         {#if snap.last_move === i}<span class="marker"></span>{/if}
+        {#if marks[i]}<span class="badge {marks[i].kind}" aria-hidden="true">{marks[i].text}</span>{/if}
       </button>
     {/each}
   </div>
@@ -173,6 +184,29 @@
     animation: pulse-glow 1.8s ease-in-out infinite;
     pointer-events: none;
   }
+  /* Review badges: a round tag in the corner of a square. */
+  .badge {
+    --c: var(--d-review-suggest-color);
+    position: absolute;
+    right: 4%;
+    top: 4%;
+    z-index: 3;
+    width: var(--d-review-badge-size);
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    font: 900 clamp(0.6rem, calc(var(--s) * 0.032), 1.15rem) / 1 var(--d-font-serif);
+    color: #1a0f08;
+    background: var(--c);
+    border: 2px solid rgba(0, 0, 0, 0.55);
+    box-shadow: 0 0 10px var(--c), 0 2px 4px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+  }
+  .badge.best { --c: var(--d-review-best-color); }
+  .badge.good { --c: var(--d-review-good-color); }
+  .badge.miss { --c: var(--d-review-miss-color); color: #fff; }
+  .badge.suggest { opacity: 0.92; }
   .cell.hint {
     box-shadow: inset 0 0 0 4px var(--d-hint-color), inset 0 0 22px var(--d-hint-color);
     animation: hint-flash 0.9s ease-in-out infinite alternate;

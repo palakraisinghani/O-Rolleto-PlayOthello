@@ -30,7 +30,7 @@ the screen at the start of a game and rain down when someone wins.
 
 Sections go from the outside in: neon lights, the room, border lighting, text, brass and velvet, buttons,
 icon buttons, option boxes, scoreboard, board frame, bulbs, board surface, discs, disc
-animations, hints, banners and dialogs, poker chips, the roulette wheel.
+animations, hints, banners and dialogs, poker chips, the roulette wheel, the game review.
 
 ---
 
@@ -273,4 +273,17 @@ wheel_size: 190px
 wheel_red: #a3182a
 wheel_black: #121212
 wheel_spin_duration: 26s                  # one full turn (bigger = slower)
+```
+
+## 20. Game review (after a game against the computer)
+
+Badges on the board while you step through your moves: the verdict on the move you played, and
+numbered badges on the computer's other favourite squares.
+
+```tokens
+review_best_color: var(--d-neon-yellow)   # your move was the computer's top choice
+review_good_color: #3ddc84                # your move was among its best few
+review_miss_color: #ff5a5a                # your move was not among them
+review_suggest_color: var(--d-neon-cyan)  # the computer's other preferred squares
+review_badge_size: 46%                    # badge diameter, as a share of one square
 ```
