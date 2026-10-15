@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Snapshot } from './api.ts';
-import { Dealer, seededRng, type Page } from './dealer.ts';
+import { DEFAULT_HOLD_PLIES, Dealer, SILENT, seededRng, settle, type Line, type Page, type Shown } from './dealer.ts';
 import { POOLS, POOL_SIZE, type PoolName } from './dialogues.ts';
 
 const inPool = (pool: PoolName, say: string) => (POOLS[pool] as readonly string[]).includes(say);
@@ -230,4 +230,46 @@ test('he is only sometimes chatty about his own moves in the review', () => {
   assert.equal(quiet.reviewOther('mine'), null);
   assert.ok(inPool('reviewMine', chatty.reviewOther('mine')!.say));
   assert.ok(inPool('reviewPass', chatty.reviewOther('pass')!.say));
+});
+
+// ------------------------------------------------------------------ holding a line
+
+const say = (text: string, extra: Partial<Line> = {}): Line => ({ say: text, mood: 'happy', ...extra });
+
+test('corner and big-flip remarks are flagged special, thinking lines transient', () => {
+  const prev = snap({ ply: 2, square: 19 });
+  const d = new Dealer({ chattiness: 1, rng: seededRng(4) });
+  assert.equal(d.afterMove(prev, snap({ ply: 3, square: 7, by: 'black' }))!.special, true);
+  assert.equal(d.afterMove(prev, snap({ ply: 3, square: 27, by: 'white', flips: 6 }))!.special, true);
+  assert.equal(d.afterMove(prev, snap({ ply: 3, square: 27, by: 'black' }))!.special, undefined);
+  assert.equal(d.thinking().transient, true);
+});
+
+test('an ordinary remark does not replace the current line until the hold is over', () => {
+  const shown: Shown = { line: say('first'), ply: 10 };
+  assert.equal(settle(shown, say('second'), 11), shown);
+  assert.equal(settle(shown, say('second'), 10 + DEFAULT_HOLD_PLIES - 1), shown);
+  assert.equal(settle(shown, say('second'), 10 + DEFAULT_HOLD_PLIES).line.say, 'second');
+});
+
+test('a special moment, or a page with nothing said yet, replaces at once', () => {
+  const shown: Shown = { line: say('first'), ply: 10 };
+  assert.equal(settle(shown, say('corner!', { special: true }), 11).line.say, 'corner!');
+  assert.equal(settle({ line: SILENT, ply: 0 }, say('hello'), 1).line.say, 'hello');
+});
+
+test('a thinking line is never held, and is cleared once the computer has moved', () => {
+  const thinking = say('hmm', { transient: true });
+  assert.equal(settle({ line: say('first'), ply: 10 }, thinking, 11).line.say, 'first'); // held: no thinking line
+  assert.equal(settle({ line: say('first'), ply: 2 }, thinking, 20).line.say, 'hmm'); // hold over
+  const shown: Shown = { line: thinking, ply: 20 };
+  assert.equal(settle(shown, say('remark'), 21).line.say, 'remark'); // replaces a transient line at once
+  assert.equal(settle(shown, null, 21, true).line.say, '');
+  assert.equal(settle(shown, null, 21, false), shown); // still thinking: leave it
+});
+
+test('with nothing new to say he keeps his last line, and a new game restarts the clock', () => {
+  const shown: Shown = { line: say('first'), ply: 10 };
+  assert.equal(settle(shown, null, 30, true), shown);
+  assert.equal(settle({ line: say('old'), ply: 40 }, say('new game'), 2).line.say, 'new game'); // ply went back
 });

@@ -7,12 +7,25 @@
   import ChipSplash from './lib/ChipSplash.svelte';
   import Croupier from './lib/Croupier.svelte';
   import DealerSlot from './lib/DealerSlot.svelte';
-  import { DEALER_NAME, dealer as orolleto, type Line } from './lib/dealer';
+  import { DEALER_NAME, SILENT, dealer as orolleto, settle, type Line, type Shown } from './lib/dealer';
   import Icon from './lib/Icon.svelte';
   import Lights from './lib/Lights.svelte';
   import Review from './lib/Review.svelte';
 
   type Screen = 'home' | 'setup-computer' | 'setup-two' | 'game' | 'review' | 'settings' | 'help';
+
+  // A reload of the page (the dev server does that when files change or its connection drops) must not
+  // throw you back to the start: the screen is remembered, and a running game is picked up again from
+  // the engine (the desktop app keeps it; the web build, which lives in the page, has none to restore).
+  const SCREEN_KEY = 'othello-player.screen';
+  const RESTORABLE_PAGES = ['setup-computer', 'setup-two', 'settings', 'help'];
+  const restoreTo = (() => {
+    try {
+      return sessionStorage.getItem(SCREEN_KEY);
+    } catch {
+      return null;
+    }
+  })();
 
   let screen = $state<Screen>('home');
   let snap = $state<Snapshot | null>(null);
@@ -31,10 +44,11 @@
   let splashKey = $state(0);
   let splashing = $state(false);
 
-  /** What Orolleto is saying and how he looks. */
-  let speech = $state<Line>({ say: '', mood: 'idle' });
-  /** After a pass announcement the next state change must not talk over it. */
-  let holdSpeech = false;
+  /** What Orolleto is saying (and when, so ordinary remarks do not replace it move after move). */
+  let shown = $state<Shown>({ line: SILENT, ply: 0 });
+  const speech = $derived(shown.line);
+  /** Say something now, whatever he was saying. */
+  const say = (line: Line, ply = snap?.ply ?? 0) => (shown = { line, ply });
 
   // Setup form
   let difficulty = $state(2);
@@ -56,24 +70,20 @@
     return snap.mode.human === s ? `${label(s)} (you)` : `${label(s)} (${DEALER_NAME})`;
   }
 
-  /** Orolleto's reaction to the game moving on. */
+  /** Orolleto's reaction to the game moving on. He keeps a line up for a while rather than changing it every move. */
   function reactDealer(prev: Snapshot | null, next: Snapshot) {
-    if (holdSpeech) {
-      holdSpeech = false;
-      return;
-    }
     if (prev && next.ply < prev.ply) return; // an undo: its own line is set by the button
     if (next.status.state === 'over') {
-      speech = orolleto.end(next);
+      say(orolleto.end(next), next.ply);
       return;
     }
     if (next.mode.kind !== 'vs_computer') return;
     const reaction = orolleto.afterMove(prev, next);
     if (next.awaiting === 'computer') {
-      if (reaction) speech = reaction;
-      else if (prev?.awaiting !== 'computer') speech = orolleto.thinking();
+      const candidate = reaction ?? (prev?.awaiting !== 'computer' ? orolleto.thinking() : null);
+      if (candidate) shown = settle(shown, candidate, next.ply);
     } else {
-      speech = reaction ?? { say: '', mood: 'idle' };
+      shown = settle(shown, reaction, next.ply, true);
     }
   }
 
@@ -85,10 +95,7 @@
       if (e.snapshot.awaiting !== 'computer') thinking = null;
       reactDealer(prev, e.snapshot);
     } else if (e.type === 'passed') {
-      if (snap?.mode.kind === 'vs_computer') {
-        speech = orolleto.passed(snap.mode.human === e.side);
-        holdSpeech = true;
-      }
+      if (snap?.mode.kind === 'vs_computer') say(orolleto.passed(snap.mode.human === e.side));
       banner = `${label(e.side)} has no legal move — ${label(other(e.side))} plays again`;
       clearTimeout(bannerTimer);
       bannerTimer = setTimeout(() => (banner = ''), 3500);
@@ -112,8 +119,7 @@
     const s = await run(() => api.newGame(mode));
     if (s) {
       snap = s;
-      holdSpeech = false;
-      speech = orolleto.start(s);
+      say(orolleto.start(s), s.ply);
       screen = 'game';
       if (settings.animations) {
         splashKey += 1;
@@ -135,7 +141,7 @@
     const s = await run(api.undo);
     if (s) {
       snap = s;
-      speech = orolleto.undo();
+      say(orolleto.undo(), s.ply);
     }
   }
 
@@ -148,7 +154,7 @@
     const sq = await run(api.hint);
     if (sq !== undefined) {
       hintSquare = sq;
-      speech = orolleto.hint();
+      say(orolleto.hint());
     }
   }
 
@@ -173,7 +179,7 @@
   // Each menu page gets its own words from Orolleto.
   $effect(() => {
     const page = screen;
-    if (page !== 'game' && page !== 'review') untrack(() => (speech = orolleto.page(page)));
+    if (page !== 'game' && page !== 'review') untrack(() => say(orolleto.page(page), 0));
   });
 
   $effect(() => {
@@ -181,7 +187,26 @@
     root.setAttribute('data-motion', settings.animations ? 'on' : 'off');
   });
 
+  // Remember where you are, for the reload case above.
+  $effect(() => {
+    const s = screen;
+    try {
+      sessionStorage.setItem(SCREEN_KEY, s === 'review' ? 'game' : s);
+    } catch {
+      /* storage may be unavailable; nothing to remember then */
+    }
+  });
+
   onMount(() => {
+    if (restoreTo === 'game') {
+      api.snapshot().then((s) => {
+        snap = s;
+        screen = 'game';
+        shown = { line: s.status.state === 'over' ? orolleto.end(s) : SILENT, ply: s.ply };
+      }).catch(() => {});
+    } else if (restoreTo && RESTORABLE_PAGES.includes(restoreTo)) {
+      screen = restoreTo as Screen;
+    }
     let unlisten: (() => void) | undefined;
     api.onGameEvent(onEvent).then((u) => (unlisten = u));
     api.getSettings().then((s) => {

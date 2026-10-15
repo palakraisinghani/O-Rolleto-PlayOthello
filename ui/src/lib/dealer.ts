@@ -15,6 +15,10 @@ export type Mood = 'idle' | 'think' | 'happy' | 'sad';
 export interface Line {
   say: string;
   mood: Mood;
+  /** A big moment (a corner, a big flip): may replace what he is saying before the hold is over. */
+  special?: boolean;
+  /** A "thinking…" line: shown only while the computer thinks, and never held. */
+  transient?: boolean;
 }
 export type Rng = () => number;
 export type Page = 'home' | 'setup-computer' | 'setup-two' | 'settings' | 'help';
@@ -22,6 +26,12 @@ export type Page = 'home' | 'setup-computer' | 'setup-two' | 'settings' | 'help'
 export const DEALER_NAME = 'Orolleto';
 /** Default chance that he comments on an ordinary move. */
 export const DEFAULT_CHATTINESS = 0.55;
+/**
+ * He keeps what he has said on screen for at least this many plies (half-moves) before an ordinary
+ * remark or a "thinking" line may replace it, so the bubble does not change with every move.
+ * Corners, big flips, passes, hints, undo and the end of a game speak up at once.
+ */
+export const DEFAULT_HOLD_PLIES = 6;
 /** How many of his latest lines of one kind he will not repeat. */
 export const DEFAULT_MEMORY = 8;
 
@@ -93,7 +103,7 @@ export class Dealer {
 
   /** While the computer works out its move. */
   thinking(): Line {
-    return this.say('thinking', 'think');
+    return { ...this.say('thinking', 'think'), transient: true };
   }
 
   /**
@@ -108,10 +118,10 @@ export class Dealer {
     const mine = byHuman ? 'human' : 'computer';
 
     if (CORNERS.includes(next.last_move)) {
-      return this.chance(SPECIAL_WEIGHT) ? this.say(byHuman ? 'humanCorner' : 'computerCorner', 'happy') : null;
+      return this.chance(SPECIAL_WEIGHT) ? { ...this.say(byHuman ? 'humanCorner' : 'computerCorner', 'happy'), special: true } : null;
     }
     if (next.flipped.length >= 5) {
-      return this.chance(SPECIAL_WEIGHT) ? this.say(byHuman ? 'humanBig' : 'computerBig', 'happy') : null;
+      return this.chance(SPECIAL_WEIGHT) ? { ...this.say(byHuman ? 'humanBig' : 'computerBig', 'happy'), special: true } : null;
     }
     if (!this.chance()) return null;
 
@@ -183,6 +193,26 @@ export class Dealer {
   reviewOther(kind: 'mine' | 'pass'): Line | null {
     return this.chance() ? this.say(kind === 'mine' ? 'reviewMine' : 'reviewPass', 'idle') : null;
   }
+}
+
+/** What is on screen: a line, and the ply of the game it was said at. */
+export interface Shown {
+  line: Line;
+  ply: number;
+}
+
+export const SILENT: Line = { say: '', mood: 'idle' };
+
+/**
+ * Decide what he shows after a game event. `candidate` is the line the dealer came up with (or null).
+ * An ordinary candidate only replaces the current line once `hold` plies have passed (or if the
+ * current line is empty or a "thinking" line); a special one always does; with no candidate the
+ * current line stays, except that a stale "thinking" line is cleared when `clearTransient` is set.
+ */
+export function settle(shown: Shown, candidate: Line | null, ply: number, clearTransient = false, hold = DEFAULT_HOLD_PLIES): Shown {
+  if (!candidate) return clearTransient && shown.line.transient ? { line: SILENT, ply } : shown;
+  const held = ply - shown.ply < hold && ply >= shown.ply && !shown.line.transient && shown.line.say !== '';
+  return candidate.special || !held ? { line: candidate, ply } : shown;
 }
 
 /** The one dealer the app talks through. */
