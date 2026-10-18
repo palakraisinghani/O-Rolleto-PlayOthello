@@ -1,6 +1,6 @@
 # Othello Player
 
-A desktop app for playing Othello (8×8) on your own machine, offline. Play the computer at four difficulty levels, or play a friend on the same computer. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); one model (the strongest) plays every level, and the four levels differ only in the move temperature.
+A desktop app for playing Othello (8×8) on your own machine, offline. Play the computer at four difficulty levels (legal-move rings and a limited number of hints on the easier ones, no undo), or play a friend on the same computer. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); one model (the strongest) plays every level, and the four levels differ only in the move temperature.
 
 > **Status: early development.** The Rust engine, baseline bots, UI-facing API, Tauri shell and a playable, styled UI exist. Oroletto is not built yet. See [Roadmap](#roadmap).
 
@@ -100,7 +100,7 @@ cd ui && npm install     # once
 npm run build:web
 ```
 
-The page runs on a TypeScript port of the Rust engine (`ui/src/lib/engine/`). `npm test` checks that port against the same golden file as the Rust engine (perft, hand-built rule cases and 100 recorded games), plus the session logic and the bots; `npm run test:web` drives the built page end to end in a headless DOM (start a game, play, undo, play a whole game, change a setting).
+The page runs on a TypeScript port of the Rust engine (`ui/src/lib/engine/`). `npm test` checks that port against the same golden file as the Rust engine (perft, hand-built rule cases and 100 recorded games), plus the session logic and the bots; `npm run test:web` drives the built page end to end in a headless DOM (start a game, play, play a whole game, change a setting).
 
 ## Tuning the look: `design.md`
 

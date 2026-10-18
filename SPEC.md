@@ -43,10 +43,10 @@ Status: **draft v0.2** — sections marked ❓ need a decision before implementa
 - **Conventions** (same as OthelloRL, since the model layout depends on them): square `(row, col)` = index `row*8 + col`, `a1` = 0 top-left, `h8` = 63, pass = 64; start position white d4/e5, black e4/d5; Black moves first.
 
 ### 3.2 Game screen
-- Board with discs, coordinates (a–h / 1–8), **legal-move hints** (toggleable), **last-move highlight**, and **flip animation**.
+- Board with discs, coordinates (a–h / 1–8), **legal-move rings** (Easy level only, toggleable in Settings), **last-move highlight**, and **flip animation**.
 - Live disc counts and a whose-turn indicator. In vs-Computer mode, a "thinking…" indicator while the AI moves.
 - **Pass banner** ("White has no legal move — Black plays again").
-- Controls: **Undo** (vs Computer: undoes your move and the AI's reply; Two Players: one move), **New game**, **Hint** (vs Computer only; optional, uses Oroletto), **Resign**.
+- Controls: **New game**, **Hint**, **Resign**. There is **no Undo button** (the backend `undo` command still exists but the UI does not use it). **Hints** are limited per game and only on the lower levels: **5 on Easy, 3 on Medium**, none on Hard, Master or Two Players; the Hint button shows how many are left. Legal-move rings are shown on **Easy only** (never on other levels or in Two Players).
 - Move list / history panel (optional in v1, desirable).
 - Input: mouse/touch click on a square; keyboard navigation (arrows + Enter) for accessibility.
 
@@ -74,15 +74,15 @@ The calibrated values are delivered in the model manifest (`models/oroletto-8x8.
 - Temperature applies only to the in-game move choice. Hints and the parity test use temperature 0.
 
 ### 3.4 Two Players (local)
-- Hot-seat play on one screen: same board UI, no AI, optional names, Undo of one move, and a result dialog naming the winner.
+- Hot-seat play on one screen: same board UI, no AI, optional names, no undo, no hints or legal-move rings, and a result dialog naming the winner.
 
 ### 3.5 Settings
-- Show legal moves (on/off), animations (on/off / speed), sound effects (on/off), animations, default board size and difficulty. Settings persist between launches.
+- Show legal moves (on/off; only has an effect on Easy), animations (on/off / speed), sound effects (on/off), animations, default board size and difficulty. Settings persist between launches.
 
 ---
 
 ### 3.6 Look and design tokens
-- One look, a **casino card room**: mahogany wood background and frames, burnished brass rims, **red velvet** button faces with brass rims and round icon buttons (Home, Undo, Hint, Resign, New game), a **green felt** board with grid lines (the same green velvet covers the scoreboard panels, option boxes and result dialog), flat-ish buttons with a thin 3D edge (tunable via `button_depth` and `button_bevel`), glossy black and white discs, a neon-sign title, a plain wood background lit only by an **RGB LED strip** round the window edge (individually coloured bulbs with their own glow, a colour pattern flowing clockwise, two interleaved sets twinkling like the board's marquee bulbs; no vignette or other effects), chasing marquee bulbs on the board frame, and a slow roulette wheel on the home screen.
+- One look, a **casino card room**: mahogany wood background and frames, burnished brass rims, **red velvet** button faces with brass rims and round icon buttons (Home, Hint, Resign, New game), a **green felt** board with grid lines (the same green velvet covers the scoreboard panels, option boxes and result dialog), flat-ish buttons with a thin 3D edge (tunable via `button_depth` and `button_bevel`), glossy black and white discs, a neon-sign title, a plain wood background lit only by an **RGB LED strip** round the window edge (individually coloured bulbs with their own glow, a colour pattern flowing clockwise, two interleaved sets twinkling like the board's marquee bulbs; no vignette or other effects), chasing marquee bulbs on the board frame, and a slow roulette wheel on the home screen.
 - **Chip animations:** at the start of every game a ring of poker chips (144 by default) rushes in from beyond the edges to the middle, then flies straight back out, **once** and fairly slowly (about 4 s in all, never blocks play; chip count, number of bursts and timing are tokens). When someone wins, chips rain from the top while the result dialog is open (not when you lose to the computer).
 - Every colour, texture and timing is a **design token** in the repo-root `design.md`. A Vite plugin turns them into CSS variables, reloads the dev app when the file changes, fails the build if the code uses an undefined token, and warns about unused ones. Textures live in `ui/public/textures/`.
 - Board details: discs on a 3D rotor (drop on placement, flips that ripple outward from the new disc and rise as they turn), pulsing rings on legal squares, a frame on the last move.
@@ -116,7 +116,7 @@ The calibrated values are delivered in the model manifest (`models/oroletto-8x8.
 ```
 
 - **Separation:** the UI never implements rules. It sends commands and renders the state it receives. The UI can then be redesigned freely without touching the engine or the AI.
-- **The AI runs off the UI thread**, can be cancelled (e.g. on Undo or New game), and reports progress for the thinking indicator.
+- **The AI runs off the UI thread**, can be cancelled (e.g. on New game), and reports progress for the thinking indicator.
 - **8×8 only.** No other board sizes are supported (decided).
 
 ### 4.1 Technology — decided: Tauri 2 + Svelte
@@ -210,7 +210,7 @@ Othello-Player/
 1. **M0 — Decisions:** close §8 (remaining: mock-ups, distribution). The Oroletto ONNX export from OthelloRL happens when the 8×8 model is ready (not blocking).
 2. **M1 — Core:** 8×8 engine + rule-based bots (test baselines and dev stand-ins) + rules tests (cross-checked against OthelloRL).
 3. **M2 — API:** `othello-api` crate (done: commands, events, session, AI worker thread with cancellation, settings; see §4.3), then the thin Tauri shell around it; **API frozen when the shell lands**.
-4. **M3 — Plain UI:** unstyled board, counts, pass banner, undo, settings, result; scripted full game in each mode.
+4. **M3 — Plain UI:** unstyled board, counts, pass banner, settings, result; scripted full game in each mode.
 5. **M4 — Oroletto in the app:** ONNX inference + MCTS + move temperature, with the parity tests against `tests/golden/parity_8x8.json`. The four levels read the shared `sims` and the per-level temperatures from the manifest, as calibrated by OthelloRL.
 
 **Phase B — Design** (no engine or API changes)

@@ -1,5 +1,5 @@
 // End-to-end test of the built web page (web/othello.html) in a headless DOM:
-// start a game, play, watch the computer answer, undo, play a whole game, change a setting.
+// start a game, play, watch the computer answer, play a whole game, change a setting.
 // Build the page first (npm run build:web), then run:  npm run test:web
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { readFileSync } from 'node:fs';
@@ -63,13 +63,6 @@ await until(() => qa('.history').some((h) => h.textContent.trim().split(' · ').
 assert.equal(discs(), 6, 'computer placed one disc');
 assert.ok(legalCells().length > 0, 'human has legal moves again');
 console.log('ok  computer replied by itself ->', scoreText(), '|', q('.history').textContent.trim());
-
-// Undo takes back both moves.
-const undo = qa('button[aria-label="Undo"]')[0];
-assert.ok(!undo.disabled, 'undo enabled');
-click(undo);
-await until(() => discs() === 4, 'undo');
-console.log('ok  undo restored the start position');
 
 // Play a whole game to the end against the computer by always taking the first legal square.
 let moves = 0;

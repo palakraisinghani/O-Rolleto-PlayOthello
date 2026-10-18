@@ -39,6 +39,12 @@
   let banner = $state('');
   let thinking = $state<number | null>(null);
   let hintSquare = $state<number | null>(null);
+  /** Hints per game by level: 5 on Easy, 3 on Medium, none above. Legal-move rings show on Easy only. */
+  const HINTS_BY_LEVEL: Record<number, number> = { 1: 5, 2: 3 };
+  let hintsLeft = $state(0);
+  const level = $derived(snap?.mode.kind === 'vs_computer' ? snap.mode.difficulty : 0);
+  const hintsAllowed = $derived((HINTS_BY_LEVEL[level] ?? 0) > 0);
+  const showLegal = $derived(level === 1 && settings.show_legal_moves);
   let error = $state('');
   /** Incremented at the start of every game to (re)play the opening chip splash. */
   let splashKey = $state(0);
@@ -119,6 +125,7 @@
     const s = await run(() => api.newGame(mode));
     if (s) {
       snap = s;
+      hintsLeft = s.mode.kind === 'vs_computer' ? (HINTS_BY_LEVEL[s.mode.difficulty] ?? 0) : 0;
       say(orolleto.start(s), s.ply);
       screen = 'game';
       if (settings.animations) {
@@ -137,22 +144,16 @@
     if (s) snap = s;
   }
 
-  async function doUndo() {
-    const s = await run(api.undo);
-    if (s) {
-      snap = s;
-      say(orolleto.undo(), s.ply);
-    }
-  }
-
   async function doResign() {
     const s = await run(api.resign);
     if (s) snap = s;
   }
 
   async function doHint() {
+    if (hintsLeft <= 0) return;
     const sq = await run(api.hint);
     if (sq !== undefined) {
+      hintsLeft -= 1;
       hintSquare = sq;
       say(orolleto.hint());
     }
@@ -303,7 +304,7 @@
     <h1 class="neon title">Settings</h1>
     <DealerSlot mood={speech.mood} say={speech.say} />
     <div class="plaque panel">
-      <label><span>Show legal moves</span><input type="checkbox" bind:checked={settings.show_legal_moves} onchange={saveSettings} /></label>
+      <label><span>Show legal moves (Easy only)</span><input type="checkbox" bind:checked={settings.show_legal_moves} onchange={saveSettings} /></label>
       <label><span>Animations</span><input type="checkbox" bind:checked={settings.animations} onchange={saveSettings} /></label>
       <label><span>Sound effects</span><input type="checkbox" bind:checked={settings.sound} onchange={saveSettings} /></label>
       <label>Default difficulty
@@ -356,18 +357,14 @@
       </p>
 
       <div class="stage">
-        <Board {snap} showLegal={settings.show_legal_moves} {hintSquare} onSquare={onSquare} />
+        <Board {snap} {showLegal} {hintSquare} onSquare={onSquare} />
       </div>
 
       <div class="controls">
-        <div class="ctl">
-          <button class="btn icon" onclick={doUndo} disabled={!snap.can_undo} aria-label="Undo"><Icon name="undo" /></button>
-          <span>Undo</span>
-        </div>
-        {#if snap.mode.kind === 'vs_computer'}
+        {#if hintsAllowed}
           <div class="ctl">
-            <button class="btn icon" onclick={doHint} disabled={snap.awaiting !== 'human'} aria-label="Hint"><Icon name="hint" /></button>
-            <span>Hint</span>
+            <button class="btn icon" onclick={doHint} disabled={snap.awaiting !== 'human' || hintsLeft <= 0 || !!over} aria-label="Hint"><Icon name="hint" /></button>
+            <span>Hint ({hintsLeft})</span>
           </div>
         {/if}
         <div class="ctl">
