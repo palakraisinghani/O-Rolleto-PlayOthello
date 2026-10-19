@@ -172,8 +172,9 @@ board_frame_bg: linear-gradient(115deg, rgba(255,255,255,0.14), transparent 30%,
 board_frame_border: var(--d-brass)        # the brass rim around the frame ("bg_border")
 board_frame_border_width: 5px
 board_frame_radius: 22px
-board_frame_padding: 38px                 # thickness of the wood rail (holds the bulbs)
+board_frame_padding: 38px                 # thickness of the outer rail that holds the bulbs (the labels get an extra band inside it)
 board_frame_glow: var(--d-brass-light)    # warm halo around the whole board
+board_label_color: var(--d-brass-light)     # the a-h / 1-8 coordinates between the bulbs and the felt
 board_frame_max_size: 900px               # biggest the board gets (it otherwise fills the space the window leaves)
 ```
 

@@ -25,6 +25,8 @@
     marks?: Record<number, Mark>;
   } = $props();
 
+  const FILES = [...'abcdefgh'];
+  const RANKS = [1, 2, 3, 4, 5, 6, 7, 8];
   const cells = Array.from({ length: 64 }, (_, i) => i);
 
   // Flips ripple outward from the placed disc: --ring is the distance (in squares) minus one;
@@ -45,6 +47,12 @@
   <div class="bulbs bottom"><i class="a"></i><i class="b"></i></div>
   <div class="bulbs left"><i class="a"></i><i class="b"></i></div>
   <div class="bulbs right"><i class="a"></i><i class="b"></i></div>
+
+  <!-- Coordinates sit inside the lights: bulbs on the outer edge, then the labels, then the felt. -->
+  <div class="labels top" aria-hidden="true">{#each FILES as f}<span>{f}</span>{/each}</div>
+  <div class="labels bottom" aria-hidden="true">{#each FILES as f}<span>{f}</span>{/each}</div>
+  <div class="labels left" aria-hidden="true">{#each RANKS as n}<span>{n}</span>{/each}</div>
+  <div class="labels right" aria-hidden="true">{#each RANKS as n}<span>{n}</span>{/each}</div>
 
   <div class="board" role="grid" aria-label="Othello board">
     {#each cells as i (i)}
@@ -89,7 +97,9 @@
     --bulb-size: min(var(--d-bulb-size), calc(var(--s) * 0.05));
     position: relative;
     width: var(--s);
-    padding: min(var(--d-board-frame-padding), calc(var(--s) * 0.07));
+    --base: min(var(--d-board-frame-padding), calc(var(--s) * 0.07)); /* the outer rail that holds the bulbs */
+    --lab: calc(var(--s) * 0.045);                                    /* the band for the a-h / 1-8 labels */
+    padding: calc(var(--base) + var(--lab));
     border-radius: var(--d-board-frame-radius);
     border: var(--d-board-frame-border-width) ridge var(--d-board-frame-border);
     background: var(--d-board-frame-bg);
@@ -99,6 +109,34 @@
       0 22px 50px rgba(0, 0, 0, 0.65),
       0 0 60px color-mix(in srgb, var(--d-board-frame-glow) 45%, transparent);
   }
+
+  /* Coordinate labels: a band between the bulbs (outside) and the felt (inside). */
+  .labels {
+    position: absolute;
+    display: grid;
+    pointer-events: none;
+    color: var(--d-board-label-color);
+    font: 700 clamp(0.6rem, calc(var(--s) * 0.032), 1.1rem) / 1 var(--d-font-serif);
+    text-transform: uppercase;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+  .labels span { display: grid; place-items: center; }
+  .labels.top, .labels.bottom {
+    grid-template-columns: repeat(8, 1fr);
+    left: calc(var(--base) + var(--lab));
+    right: calc(var(--base) + var(--lab));
+    height: var(--lab);
+  }
+  .labels.top { top: var(--base); }
+  .labels.bottom { bottom: var(--base); }
+  .labels.left, .labels.right {
+    grid-template-rows: repeat(8, 1fr);
+    top: calc(var(--base) + var(--lab));
+    bottom: calc(var(--base) + var(--lab));
+    width: var(--lab);
+  }
+  .labels.left { left: var(--base); }
+  .labels.right { right: var(--base); }
 
   /* Marquee bulbs: two interleaved sets blink in alternation, so the lights chase. */
   .bulbs { position: absolute; pointer-events: none; }

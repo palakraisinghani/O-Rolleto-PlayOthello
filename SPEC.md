@@ -43,7 +43,7 @@ Status: **draft v0.2** — sections marked ❓ need a decision before implementa
 - **Conventions** (same as OthelloRL, since the model layout depends on them): square `(row, col)` = index `row*8 + col`, `a1` = 0 top-left, `h8` = 63, pass = 64; start position white d4/e5, black e4/d5; Black moves first.
 
 ### 3.2 Game screen
-- Board with discs, coordinates (a–h / 1–8), **legal-move rings** (Easy level only, toggleable in Settings), **last-move highlight**, and **flip animation**.
+- Board with discs, coordinates (a–h along the top and bottom, 1–8 down both sides; shown during play and in the review, in a band inside the marquee bulbs so the lights are the outermost ring), **legal-move rings** (Easy level only, toggleable in Settings), **last-move highlight**, and **flip animation**.
 - Live disc counts and a whose-turn indicator. In vs-Computer mode, a "thinking…" indicator while the AI moves.
 - **Pass banner** ("White has no legal move — Black plays again").
 - Controls: **New game**, **Hint**, **Resign**. There is **no Undo button** (the backend `undo` command still exists but the UI does not use it). **Hints** are limited per game and only on the lower levels: **5 on Easy, 3 on Medium**, none on Hard, Master or Two Players; the Hint button shows how many are left. Legal-move rings are shown on **Easy only** (never on other levels or in Two Players).
