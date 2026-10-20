@@ -2,7 +2,7 @@
 // with settings kept in localStorage. Used when the page runs outside the desktop app.
 
 import type { GameEvent, Mode, Settings, Snapshot } from '../api.ts';
-import { WebSession } from './session.ts';
+import { WebSession, type SessionOptions } from './session.ts';
 
 const SETTINGS_KEY = 'othello-player.settings';
 
@@ -32,8 +32,8 @@ export function loadSettings(): Settings {
   }
 }
 
-export function createWebBackend() {
-  const session = new WebSession();
+export function createWebBackend(options: SessionOptions = {}) {
+  const session = new WebSession(options);
   return {
     newGame: async (mode: Mode): Promise<Snapshot> => session.newGame(mode),
     play: async (square: number): Promise<Snapshot> => session.play(square),

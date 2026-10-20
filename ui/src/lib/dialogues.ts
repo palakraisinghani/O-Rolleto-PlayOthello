@@ -56,6 +56,20 @@ export const POOLS = {
     'A match between friends? My favourite kind.',
     'I will keep score and cheer for both of you!'
   ],
+  setupBuddy: [
+    'Buddy is a clever friend: always one step ahead of you, never too far.',
+    'Play Buddy and it learns how you play, then keeps the game just challenging enough.',
+    'The more you play, the better Buddy knows you. Lovely!',
+    'Buddy never plays too hard. It stays a small step above you.',
+    'A friendly rival who grows as you grow. I like that!'
+  ],
+  progress: [
+    'Look at that curve! Every game teaches us something.',
+    'Your level is a trail, and you are walking it nicely.',
+    'Progress is a lovely thing to watch. Keep going!',
+    'A few games more, and Buddy will know you like an old friend.',
+    'Slow and steady climbs the highest. Well done!'
+  ],
   settings: [
     'Make the room just right for you. It is your table!',
     'Want the little rings that show where you can play? A lovely helping hand.',
@@ -74,7 +88,7 @@ export const POOLS = {
     'Corners are special, nobody can flip them. Treasure them!',
     'If you have no move you pass. No worries, it happens to everyone.',
     'Most discs at the end wins. Simple and beautiful, isn’t it?',
-    'Ask me for a hint any time during a game. I love to help!',
+    'Ask me for a tip any time during a game. I love to help!',
     'Do not worry about mistakes. Every one of them is a lesson.',
     'Read it slowly, then let us play. I will go easy at the start!',
     'Edges can be tricky, corners are lovely, and patience wins games.',
@@ -94,7 +108,7 @@ export const POOLS = {
     'Deep breath, friend. This is going to be fun!',
     'I have been looking forward to this. Go ahead, place your first disc!',
     "Let's make this a game to remember!",
-    'Good luck! And if you want a hint, just ask.',
+    'Good luck! And if you want a tip, just ask.',
     'Thank you for sitting down with me. Let us have a great game!',
     'Oh, I love the first move of a new game. Over to you!'
   ],
@@ -313,7 +327,7 @@ export const POOLS = {
   ],
   hint: [
     'Of course, happy to help! Look for the glowing square.',
-    'A hint, coming right up! I would try that one.',
+    'A tip, coming right up! I would try that one.',
     'Good idea to ask. Here is my favourite.',
     'I love helping. Try the highlighted square!',
     'There you go, friend. No shame in asking!',

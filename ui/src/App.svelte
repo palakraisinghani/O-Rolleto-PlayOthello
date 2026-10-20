@@ -8,17 +8,23 @@
   import Croupier from './lib/Croupier.svelte';
   import DealerSlot from './lib/DealerSlot.svelte';
   import { DEALER_NAME, SILENT, dealer as orolleto, settle, type Line, type Shown } from './lib/dealer';
+  import { measureGame } from './lib/engine/buddy-analysis.ts';
+  import { buddySkill, buddyTemperature, profileAtLevel, skillName, updateProfile, type Profile } from './lib/engine/buddy.ts';
+  import { clearProfile, loadProfile, saveProfile } from './lib/buddy-store.ts';
+  import HowToPlay from './lib/HowToPlay.svelte';
+  import LevelCarry from './lib/LevelCarry.svelte';
+  import Progress from './lib/Progress.svelte';
   import Icon from './lib/Icon.svelte';
   import Lights from './lib/Lights.svelte';
   import Review from './lib/Review.svelte';
 
-  type Screen = 'home' | 'setup-computer' | 'setup-two' | 'game' | 'review' | 'settings' | 'help';
+  type Screen = 'home' | 'setup-computer' | 'setup-two' | 'setup-buddy' | 'progress' | 'game' | 'review' | 'settings' | 'help';
 
   // A reload of the page (the dev server does that when files change or its connection drops) must not
   // throw you back to the start: the screen is remembered, and a running game is picked up again from
   // the engine (the desktop app keeps it; the web build, which lives in the page, has none to restore).
   const SCREEN_KEY = 'othello-player.screen';
-  const RESTORABLE_PAGES = ['setup-computer', 'setup-two', 'settings', 'help'];
+  const RESTORABLE_PAGES = ['setup-computer', 'setup-two', 'setup-buddy', 'progress', 'settings', 'help'];
   const restoreTo = (() => {
     try {
       return sessionStorage.getItem(SCREEN_KEY);
@@ -39,7 +45,7 @@
   let banner = $state('');
   let thinking = $state<number | null>(null);
   let hintSquare = $state<number | null>(null);
-  /** Hints per game by level: 5 on Easy, 3 on Medium, none above. Legal-move rings show on Easy only. */
+  /** Tips (the Hint button) per game by level: 5 on Easy, 3 on Medium, none above. Legal-move rings show on Easy only. */
   const HINTS_BY_LEVEL: Record<number, number> = { 1: 5, 2: 3 };
   let hintsLeft = $state(0);
   const level = $derived(snap?.mode.kind === 'vs_computer' ? snap.mode.difficulty : 0);
@@ -49,6 +55,15 @@
   /** Incremented at the start of every game to (re)play the opening chip splash. */
   let splashKey = $state(0);
   let splashing = $state(false);
+
+  /** Your measured level (Buddy builds); kept on this device. */
+  let profile = $state<Profile>(loadProfile());
+  /** What was learnt from the game that just ended: working, or the result. */
+  let learning = $state<'idle' | 'working' | 'done' | 'skipped'>('idle');
+  let learnt = $state<{ skill: number; before: number; after: number } | null>(null);
+  let gameSerial = 0;
+  let learnedSerial = -1;
+  let learnQueue: Promise<void> = Promise.resolve();
 
   /** What Orolleto is saying (and when, so ordinary remarks do not replace it move after move). */
   let shown = $state<Shown>({ line: SILENT, ply: 0 });
@@ -73,7 +88,7 @@
     if (snap.mode.kind === 'two_players') {
       return (s === 'black' ? snap.mode.black_name : snap.mode.white_name) || label(s);
     }
-    return snap.mode.human === s ? `${label(s)} (you)` : `${label(s)} (${DEALER_NAME})`;
+    return snap.mode.human === s ? `${label(s)} (you)` : `${label(s)} (${snap.mode.kind === 'vs_buddy' ? 'Buddy' : DEALER_NAME})`;
   }
 
   /** Orolleto's reaction to the game moving on. He keeps a line up for a while rather than changing it every move. */
@@ -125,6 +140,9 @@
     const s = await run(() => api.newGame(mode));
     if (s) {
       snap = s;
+      gameSerial += 1;
+      learning = 'idle';
+      learnt = null;
       hintsLeft = s.mode.kind === 'vs_computer' ? (HINTS_BY_LEVEL[s.mode.difficulty] ?? 0) : 0;
       say(orolleto.start(s), s.ply);
       screen = 'game';
@@ -136,6 +154,7 @@
   }
 
   const startComputer = () => start({ kind: 'vs_computer', difficulty, human });
+  const startBuddy = () => start({ kind: 'vs_buddy', human, temperature: buddyTemperature(profile) });
   const startTwo = () => start({ kind: 'two_players', black_name: blackName || null, white_name: whiteName || null });
 
   async function onSquare(i: number) {
@@ -164,6 +183,9 @@
     const m = snap.mode;
     if (m.kind === 'vs_computer') {
       start({ ...m, human: swap ? (other(m.human as Side)) : m.human });
+    } else if (m.kind === 'vs_buddy') {
+      // Buddy has learned from the game just played, so it plays at your new level.
+      start({ kind: 'vs_buddy', human: swap ? other(m.human as Side) : m.human, temperature: buddyTemperature(profile) });
     } else {
       start(
         swap
@@ -172,6 +194,46 @@
       );
     }
   }
+
+  /** Measure how well you played in a finished game and update your trajectory (one game at a time). */
+  function learnFrom(s: Snapshot, serial: number) {
+    if (!api.buddyAvailable || s.mode.kind === 'two_players' || s.status.state !== 'over') return;
+    const mode = s.mode;
+    const status = s.status;
+    learning = 'working';
+    learnQueue = learnQueue.then(async () => {
+      try {
+        const m = await api.model();
+        const est = await measureGame(s.history, mode.human as Side, m.evaluator);
+        if (!est) {
+          if (serial === gameSerial) learning = 'skipped';
+          return;
+        }
+        const before = profile.level;
+        profile = updateProfile(profile, est, {
+          time: Date.now(),
+          opponent: mode.kind === 'vs_buddy' ? 'Buddy' : `Level ${mode.difficulty}`,
+          result: status.winner === null ? 'draw' : status.winner === mode.human ? 'win' : 'loss'
+        });
+        saveProfile(profile);
+        if (serial === gameSerial) {
+          learnt = { skill: est.skill, before, after: profile.level };
+          learning = 'done';
+        }
+      } catch {
+        if (serial === gameSerial) learning = 'skipped';
+      }
+    });
+  }
+
+  // When a game against the computer or Buddy ends, learn from it once.
+  $effect(() => {
+    const s = snap;
+    if (s && s.status.state === 'over' && learnedSerial !== gameSerial) {
+      learnedSerial = gameSerial;
+      untrack(() => learnFrom(s, gameSerial));
+    }
+  });
 
   async function saveSettings() {
     await run(() => api.setSettings($state.snapshot(settings) as Settings));
@@ -223,7 +285,7 @@
   const celebrate = $derived(
     !!over &&
       over.winner !== null &&
-      !(snap?.mode.kind === 'vs_computer' && over.winner !== snap.mode.human)
+      !((snap?.mode.kind === 'vs_computer' || snap?.mode.kind === 'vs_buddy') && over.winner !== snap.mode.human)
   );
   const sideName = (side: Side) =>
     (snap?.mode.kind === 'two_players' && (side === 'black' ? snap.mode.black_name : snap.mode.white_name)) || label(side);
@@ -232,6 +294,13 @@
   const result = $derived.by(() => {
     if (!over || !snap) return { headline: '', detail: '' };
     if (over.winner === null) return { headline: 'Draw', detail: 'Honours even' };
+    if (snap.mode.kind === 'vs_buddy') {
+      const won = over.winner === snap.mode.human;
+      return {
+        headline: won ? 'You win!' : 'Buddy wins',
+        detail: over.resigned ? 'You resigned' : won ? 'Buddy will play a little better next time' : 'Close one. Buddy is only a step ahead'
+      };
+    }
     if (snap.mode.kind === 'vs_computer') {
       const won = over.winner === snap.mode.human;
       return {
@@ -261,7 +330,13 @@
       <DealerSlot mood={speech.mood} say={speech.say} />
       <nav class="menu">
         <button class="btn primary" onclick={() => (screen = 'setup-computer')}>Play vs Computer</button>
+        {#if api.buddyAvailable}
+          <button class="btn" onclick={() => (screen = 'setup-buddy')}>Play Buddy</button>
+        {/if}
         <button class="btn" onclick={() => (screen = 'setup-two')}>Two Players</button>
+        {#if api.buddyAvailable}
+          <button class="btn" onclick={() => (screen = 'progress')}>My Progress</button>
+        {/if}
         <button class="btn" onclick={() => (screen = 'help')}>How to Play</button>
         <button class="btn" onclick={() => (screen = 'settings')}>Settings</button>
       </nav>
@@ -288,6 +363,34 @@
         <button type="button" class="btn small" onclick={() => (screen = 'home')}>Back</button>
       </div>
     </form>
+  {:else if screen === 'setup-buddy'}
+    <h1 class="neon title">Play Buddy</h1>
+    <DealerSlot mood={speech.mood} say={speech.say} />
+    <form class="plaque panel" onsubmit={(e) => { e.preventDefault(); startBuddy(); }}>
+      <p class="buddy-intro">Buddy learns how you play and stays a little stronger than you, so every game is a fair challenge.</p>
+      <div class="buddy-levels">
+        <div><span class="muted">Your level</span><strong>{profile.level.toFixed(2)}</strong><span>{skillName(profile.level)}</span></div>
+        <div><span class="muted">Buddy plays at</span><strong>{buddySkill(profile).toFixed(2)}</strong><span>{skillName(buddySkill(profile))}</span></div>
+      </div>
+      {#if api.sessionOnly}<LevelCarry {profile} onset={(l) => (profile = profileAtLevel(l))} />{/if}
+      {#if profile.games.length === 0}<p class="muted">New here? Buddy starts at a middling level and tunes itself after your first games.</p>{/if}
+      <label>You play
+        <select bind:value={human}>
+          <option value="black">Black (moves first)</option>
+          <option value="white">White</option>
+          <option value="random">Random</option>
+        </select>
+      </label>
+      <div class="row">
+        <button type="submit" class="btn primary">Deal me in</button>
+        <button type="button" class="btn small" onclick={() => (screen = 'home')}>Back</button>
+      </div>
+    </form>
+  {:else if screen === 'progress'}
+    <h1 class="neon title">My Progress</h1>
+    <DealerSlot mood={speech.mood} say={speech.say} />
+    <Progress {profile} onback={() => (screen = 'home')} onreset={() => { clearProfile(); profile = loadProfile(); }} />
+    {#if api.sessionOnly}<div class="plaque panel carry-panel"><LevelCarry {profile} onset={(l) => (profile = profileAtLevel(l))} /></div>{/if}
   {:else if screen === 'setup-two'}
     <h1 class="neon title">Two Players</h1>
     <DealerSlot mood={speech.mood} say={speech.say} />
@@ -324,11 +427,7 @@
   {:else if screen === 'help'}
     <h1 class="neon title">How to Play</h1>
     <DealerSlot mood={speech.mood} say={speech.say} />
-    <div class="plaque panel prose">
-      <p>Black moves first. Place a disc so that it traps one or more of your opponent's discs in a straight line (any direction) between the new disc and another of your own. Trapped discs flip to your colour.</p>
-      <p>You must flip at least one disc. If you have no legal move you pass, and the other player plays again. The game ends when neither player can move or the board is full. Most discs wins.</p>
-      <div class="row"><button class="btn small" onclick={() => (screen = 'home')}>Back</button></div>
-    </div>
+    <HowToPlay onback={() => (screen = 'home')} />
   {:else if screen === 'review' && snap}
     <Review {snap} onclose={() => (screen = 'game')} />
   {:else if screen === 'game' && snap}
@@ -363,8 +462,8 @@
       <div class="controls">
         {#if hintsAllowed}
           <div class="ctl">
-            <button class="btn icon" onclick={doHint} disabled={snap.awaiting !== 'human' || hintsLeft <= 0 || !!over} aria-label="Hint"><Icon name="hint" /></button>
-            <span>Hint ({hintsLeft})</span>
+            <button class="btn icon" onclick={doHint} disabled={snap.awaiting !== 'human' || hintsLeft <= 0 || !!over} aria-label="Tip"><Icon name="hint" /></button>
+            <span>Tip ({hintsLeft})</span>
           </div>
         {/if}
         <div class="ctl">
@@ -393,10 +492,19 @@
           <div class="dialog-dealer"><Croupier width="9rem" mood={speech.mood} say={speech.say} /></div>
           <h2 class="neon result">{result.headline}</h2>
           {#if result.detail}<p class="detail">{result.detail}</p>{/if}
+          {#if api.buddyAvailable && snap.mode.kind !== 'two_players'}
+            <p class="learn" role="status" aria-live="polite">
+              {#if learning === 'working'}Measuring how you played…
+              {:else if learning === 'done' && learnt}Your level {learnt.after.toFixed(2)} · {skillName(learnt.after)}
+                <span class:up={learnt.after > learnt.before} class:down={learnt.after < learnt.before}>{learnt.after >= learnt.before ? '▲' : '▼'} {Math.abs(learnt.after - learnt.before).toFixed(2)}</span>
+                {#if api.sessionOnly}<span class="muted"> · note it for next time</span>{/if}
+              {:else if learning === 'skipped'}Too few moves to measure your level{/if}
+            </p>
+          {/if}
           <p class="final"><span class="chip black"></span> {snap.black_count} – {snap.white_count} <span class="chip white"></span></p>
           <div class="row">
             <button class="btn primary" onclick={() => rematch(false)}>Rematch</button>
-            {#if snap.mode.kind === 'vs_computer' && snap.history.length > 0}
+            {#if (snap.mode.kind === 'vs_computer' || snap.mode.kind === 'vs_buddy') && snap.history.length > 0}
               <button class="btn" onclick={() => (screen = 'review')}>Review game</button>
             {/if}
             <button class="btn" onclick={() => rematch(true)}>Swap colours</button>
@@ -430,6 +538,14 @@
     height: 100dvh;
     justify-content: flex-start;
   }
+  .buddy-intro { margin: 0; line-height: 1.5; }
+  .buddy-levels { display: flex; justify-content: space-around; text-align: center; }
+  .buddy-levels div { display: flex; flex-direction: column; gap: 0.15rem; }
+  .buddy-levels strong { font: 900 2rem / 1 var(--d-font-serif); color: var(--d-scoreboard-count-color); text-shadow: 0 0 10px var(--d-scoreboard-count-glow); }
+  .carry-panel { margin-top: 1rem; padding: 1rem; }
+  .learn { margin: 0; text-align: center; font-weight: 600; min-height: 1.4em; }
+  .learn .up { color: var(--d-review-best-color); }
+  .learn .down { color: var(--d-review-miss-color); }
   .muted { opacity: 0.7; margin: 0; color: var(--d-ink-dim); }
   .row { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; margin-top: 0.4rem; }
 
@@ -477,7 +593,6 @@
   .title { font-size: clamp(1.8rem, 8vw, 3rem); text-align: center; margin: 0 0 clamp(0.8rem, 3vh, 1.4rem); }
   .panel { display: flex; flex-direction: column; gap: 1rem; padding: 1.6rem; }
   .panel label { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-family: var(--d-font-serif); font-weight: 700; }
-  .prose p { margin: 0; line-height: 1.55; }
 
   /* ---- game ---- */
   .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }

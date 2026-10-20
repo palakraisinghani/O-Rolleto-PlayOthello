@@ -1,0 +1,50 @@
+# Builds the Android app (with Oroletto inside) and attaches it to a GitHub Release.
+#   Othello-Player-android.apk  (debug-signed: open it on the phone to install)
+# Run it by pushing a tag (git tag v0.2.0 && git push origin v0.2.0) or from the Actions tab ("Run workflow").
+name: Android app
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: npm ci
+        working-directory: ui
+      - run: npm ci
+        working-directory: mobile
+      - name: Build the web app (with Oroletto) and sync it into the Android project
+        working-directory: mobile
+        run: npm run web && npx cap sync android
+      - name: Build the APK
+        working-directory: mobile/android
+        run: ./gradlew assembleDebug --no-daemon
+      - run: cp mobile/android/app/build/outputs/apk/debug/app-debug.apk Othello-Player-android.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: android, path: Othello-Player-android.apk }
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" \
+            --title "Othello Player $GITHUB_REF_NAME" \
+            --notes "Download the .apk and open it on your Android phone (allow installs from your browser or files app when asked). Oroletto, the neural-network opponent, plays entirely offline on the phone."

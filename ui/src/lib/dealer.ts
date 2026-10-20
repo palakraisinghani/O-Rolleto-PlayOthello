@@ -21,7 +21,7 @@ export interface Line {
   transient?: boolean;
 }
 export type Rng = () => number;
-export type Page = 'home' | 'setup-computer' | 'setup-two' | 'settings' | 'help';
+export type Page = 'home' | 'setup-computer' | 'setup-two' | 'setup-buddy' | 'progress' | 'settings' | 'help';
 
 export const DEALER_NAME = 'Orolleto';
 /** Default chance that he comments on an ordinary move. */
@@ -89,7 +89,7 @@ export class Dealer {
   /** What he says on a menu page. */
   page(page: Page): Line {
     const pool: PoolName =
-      page === 'home' ? 'home' : page === 'setup-computer' ? 'setupComputer' : page === 'setup-two' ? 'setupTwo' : page;
+      page === 'home' ? 'home' : page === 'setup-computer' ? 'setupComputer' : page === 'setup-two' ? 'setupTwo' : page === 'setup-buddy' ? 'setupBuddy' : page;
     return this.say(pool, 'happy');
   }
 

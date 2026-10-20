@@ -1,6 +1,6 @@
 # Othello Player
 
-A desktop app for playing Othello (8×8) on your own machine, offline. Play the computer at four difficulty levels (legal-move rings and a limited number of hints on the easier ones, no undo), or play a friend on the same computer. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); one model (the strongest) plays every level, and the four levels differ only in the move temperature.
+A desktop app for playing Othello (8×8) on your own machine, offline. Play the computer at four difficulty levels (legal-move rings and a limited number of tips on the easier ones, no undo), or play a friend on the same computer. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); one model (the strongest) plays every level, and the four levels differ only in the move temperature.
 
 > **Status: early development.** The Rust engine, baseline bots, UI-facing API, Tauri shell and a playable, styled UI exist. Oroletto is not built yet. See [Roadmap](#roadmap).
 
@@ -19,7 +19,8 @@ The UI never implements rules: it sends commands (`new_game`, `play`, `undo`, ..
 SPEC.md                    specification, decisions, milestones
 launch.sh                  launches the app in development mode
 design.md                  design tokens for the whole look (edit to tune the UI)
-web/othello.html           the whole game as one self-contained page for GitHub Pages (built by `npm run build:web`)
+web/othello.html           the whole game as one self-contained page, classic bots only (built by `npm run build:web`)
+docs/                      this repository's GitHub Pages site: the full game with Oroletto, Buddy and My Progress (built by `npm run build:site`)
 Cargo.toml                 Rust workspace
 core/                      Rust crate `othello-core`: engine, rules, history/undo, random + greedy bots
 api/                       Rust crate `othello-api`: the command/event API the UI talks to (see SPEC §4.3)
@@ -73,6 +74,16 @@ cargo test      # engine + API tests, incl. the golden-file checks against Othel
 (cd ui && npm test)   # the TypeScript engine used by the web page, against the same golden file
 ```
 
+## The GitHub Pages site (`docs/`)
+
+Set the repository's Pages source to the `/docs` folder. The site is plain static files (the page, `oroletto/` with the model, and the WebAssembly runtime) and everything runs in the visitor's browser: **every level is Oroletto**, and **Play Buddy** and **My Progress** work with no server and no storage. Progress lasts for the session; players note their level and type it in next time. Rebuild it with:
+
+```bash
+cd ui && npm install && npm run build:site     # rewrites docs/
+```
+
+Try it locally with `cd docs && python3 -m http.server 8000` (browsers need http, not a file:// URL, to load the model).
+
 ## Web version (host it on GitHub Pages)
 
 [`web/othello.html`](web/othello.html) is the whole game as **one self-contained file** (about 260 KB: the code, fonts and textures are all inside it). It looks and plays like the desktop app: same wood, brass, velvet, LED strip and chip animations. It needs no server and no network, and it even works opened straight from disk.
@@ -101,6 +112,12 @@ npm run build:web
 ```
 
 The page runs on a TypeScript port of the Rust engine (`ui/src/lib/engine/`). `npm test` checks that port against the same golden file as the Rust engine (perft, hand-built rule cases and 100 recorded games), plus the session logic and the bots; `npm run test:web` drives the built page end to end in a headless DOM (start a game, play, play a whole game, change a setting).
+
+## Android app
+
+[`mobile/`](mobile/README.md) wraps the same UI in Capacitor, with **Oroletto playing on the phone** (ONNX Runtime Web + a TypeScript port of the search, checked against OthelloRL's visit counts). A version tag (`git tag v0.2.0 && git push origin v0.2.0`) makes GitHub Actions build an Android `.apk` and attach it to a Release, so anyone can download and install it without a store or developer account.
+
+**Buddy** (Android app and the GitHub Pages site): a third way to play. It measures how well you play after each game (by comparing your moves with Oroletto's), tracks your level over time in **My Progress**, and plays slightly stronger than you. On the website nothing is stored: your level lasts for the session, and you type it in next time to carry on. See SPEC §3.9.
 
 ## Tuning the look: `design.md`
 

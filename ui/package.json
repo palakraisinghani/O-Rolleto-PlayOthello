@@ -10,7 +10,9 @@
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json && tsc -p tsconfig.test.json",
     "test": "node --test \"src/**/*.test.ts\"",
     "build:web": "vite build --mode web && node scripts/finish-web.mjs",
-    "test:web": "node scripts/e2e-web.mjs"
+    "test:web": "node scripts/e2e-web.mjs",
+    "build:site": "node scripts/prepare-mobile.mjs && vite build --mode site && node scripts/finish-site.mjs",
+    "build:mobile": "node scripts/prepare-mobile.mjs && vite build --mode mobile"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
@@ -26,6 +28,7 @@
   "dependencies": {
     "@fontsource/monoton": "^5.3.0",
     "@fontsource/playfair-display": "^5.3.0",
-    "@tauri-apps/api": "^2.12.1"
+    "@tauri-apps/api": "^2.12.1",
+    "onnxruntime-web": "^1.30.0"
   }
 }

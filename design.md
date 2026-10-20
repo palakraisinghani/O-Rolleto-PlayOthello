@@ -128,7 +128,7 @@ button_primary_lip: #5a3f12
 button_primary_glow: var(--d-brass-light)
 ```
 
-## 8. Icon buttons (Undo, Hint, Resign, New game and friends)
+## 8. Icon buttons (Tip, Resign, New game and friends)
 
 Round velvet buttons with a brass rim; they use the button tokens above plus these.
 
@@ -232,7 +232,7 @@ legal_hint_size: 30%
 legal_hint_pulse_duration: 1.4s
 legal_hint_hue_cycle_duration: 6s         # 9999s keeps the rings one colour
 last_move_color: var(--d-neon-yellow)     # frame around the latest disc
-hint_color: var(--d-neon-cyan)            # square suggested by the Hint button
+hint_color: var(--d-neon-cyan)            # square suggested by the Tip button
 ```
 
 ## 17. Banners and dialogs

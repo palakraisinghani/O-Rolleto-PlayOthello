@@ -13,7 +13,7 @@
 
   let { snap, onclose }: { snap: Snapshot; onclose: () => void } = $props();
 
-  const human = $derived<Side>(snap.mode.kind === 'vs_computer' ? (snap.mode.human as Side) : 'black');
+  const human = $derived<Side>(snap.mode.kind !== 'two_players' ? (snap.mode.human as Side) : 'black');
   const label = (s: Side) => (s === 'black' ? 'Black' : 'White');
   const pct = (x: number) => `${Math.round(x * 100)}%`;
 

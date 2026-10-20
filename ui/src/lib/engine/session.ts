@@ -8,6 +8,8 @@
 
 import type { ApiError, Awaiting, GameEvent, Mode, Side as ApiSide, Snapshot, Status } from '../api.ts';
 import { Rng, chooseMove, type SearchControl } from './ai.ts';
+import { chooseBuddy } from './buddy-analysis.ts';
+import { chooseOroletto, type Evaluator, type Levels } from './oroletto.ts';
 import { PASS, Position, bitsToSquares, moveName, opponent, type Side } from './position.ts';
 
 interface Entry {
@@ -30,6 +32,8 @@ export interface SessionOptions {
   minThinkMs?: number;
   /** Time budget of the strongest level. */
   level4BudgetMs?: number;
+  /** Oroletto, once loaded (the promise may fail: the classic bots then play instead). */
+  oroletto?: Promise<{ evaluator: Evaluator; levels: Levels }>;
 }
 
 const fail = (error: ApiError): never => {
@@ -45,11 +49,46 @@ export class WebSession {
   private readonly minThinkMs: number;
   private readonly level4BudgetMs: number;
   private ticker: ReturnType<typeof setInterval> | null = null;
+  private loading: Promise<void> | undefined;
+  private oroletto: { evaluator: Evaluator; levels: Levels } | null = null;
 
   constructor(options: SessionOptions = {}) {
     this.rng = new Rng(options.seed ?? Date.now());
     this.minThinkMs = options.minThinkMs ?? 650;
     this.level4BudgetMs = options.level4BudgetMs ?? 900;
+    // If the model fails to load the bots play instead.
+    this.loading = options.oroletto?.then(
+      (o) => void (this.oroletto = o),
+      () => void (this.oroletto = null)
+    );
+  }
+
+  /** Oroletto's move if the model is loaded, else the classic bot of that level. */
+  private async pickMove(position: Position, level: number, ctl: SearchControl, temperature?: number, buddyTemperature?: number): Promise<number | null> {
+    await this.loading; // the first move waits for the model rather than falling back
+    if (this.oroletto && buddyTemperature !== undefined) {
+      return chooseBuddy(position, buddyTemperature, this.oroletto.evaluator, new Rng(this.rng.nextU64()), {
+        cancelled: ctl.cancelled,
+        progress: async (f) => {
+          ctl.progress(f);
+          await sleep(0);
+        }
+      });
+    }
+    if (buddyTemperature !== undefined) level = 3; // no model: a middling classic bot stands in for Buddy
+    if (this.oroletto) {
+      const { evaluator, levels } = this.oroletto;
+      return chooseOroletto(position, level, evaluator, levels, new Rng(this.rng.nextU64()), {
+        cancelled: ctl.cancelled,
+        temperature,
+        // Yield to the page between batches of simulations so it keeps animating.
+        progress: async (f) => {
+          ctl.progress(f);
+          await sleep(0);
+        }
+      });
+    }
+    return chooseMove(position, temperature === 0 ? 4 : level, new Rng(this.rng.nextU64()), ctl, Math.min(this.level4BudgetMs, temperature === 0 ? 450 : this.level4BudgetMs));
   }
 
   /** Subscribe to events. Returns the function that unsubscribes. */
@@ -68,12 +107,13 @@ export class WebSession {
     if (mode.kind === 'vs_computer' && !(Number.isInteger(mode.difficulty) && mode.difficulty >= 1 && mode.difficulty <= 4)) {
       fail({ code: 'invalid_difficulty', given: mode.difficulty });
     }
+    if (mode.kind === 'vs_buddy' && !this.loading) fail({ code: 'buddy_unavailable' }); // Buddy needs Oroletto
     this.cancelSearch();
     let resolved: Mode = mode;
     let human: Side | null = null;
-    if (mode.kind === 'vs_computer') {
+    if (mode.kind === 'vs_computer' || mode.kind === 'vs_buddy') {
       human = mode.human === 'random' ? (this.rng.below(2) === 0 ? 'black' : 'white') : mode.human;
-      resolved = { kind: 'vs_computer', difficulty: mode.difficulty, human };
+      resolved = mode.kind === 'vs_computer' ? { kind: 'vs_computer', difficulty: mode.difficulty, human } : { kind: 'vs_buddy', temperature: mode.temperature, human };
     }
     this.active = { history: [{ position, last: null }], mode: resolved, human, resigned: null };
     const events = this.advance();
@@ -131,7 +171,7 @@ export class WebSession {
     if (a.mode.kind !== 'vs_computer' || this.awaiting(a) !== 'human') fail({ code: 'hint_unavailable' });
     const position = this.current(a);
     const ctl: SearchControl = { cancelled: () => false, progress: () => {} };
-    const move = await chooseMove(position, 4, new Rng(this.rng.nextU64()), ctl, Math.min(this.level4BudgetMs, 450));
+    const move = await this.pickMove(position, 4, ctl, 0);
     if (move === null || move === PASS) fail({ code: 'hint_unavailable' });
     return move as number;
   }
@@ -241,11 +281,13 @@ export class WebSession {
       events.push({ type: 'game_over', winner: status.winner, resigned: status.resigned, black, white });
     } else if (this.awaiting(a) === 'computer' && a.mode.kind === 'vs_computer') {
       this.startSearch(this.current(a), a.mode.difficulty);
+    } else if (this.awaiting(a) === 'computer' && a.mode.kind === 'vs_buddy') {
+      this.startSearch(this.current(a), 4, a.mode.temperature);
     }
     return events;
   }
 
-  private startSearch(position: Position, level: number) {
+  private startSearch(position: Position, level: number, buddyTemperature?: number) {
     this.cancelSearch();
     const generation = this.generation;
     const started = Date.now();
@@ -256,7 +298,7 @@ export class WebSession {
       this.emit([{ type: 'thinking', progress: Math.min(0.9, (Date.now() - started) / this.minThinkMs) }]);
     }, 90);
     const ctl: SearchControl = { cancelled: () => !alive(), progress: () => {} };
-    chooseMove(position, level, this.rng, ctl, this.level4BudgetMs)
+    this.pickMove(position, level, ctl, undefined, buddyTemperature)
       .then(async (move) => {
         if (move === null || !alive()) return;
         const wait = this.minThinkMs - (Date.now() - started);

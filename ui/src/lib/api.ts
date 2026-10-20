@@ -9,12 +9,14 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { createWebBackend } from './engine/web-backend.ts';
+import type { LoadedOroletto } from './engine/oroletto-ort.ts';
 
 export type Side = 'black' | 'white';
 export type HumanSide = Side | 'random';
 
 export type Mode =
   | { kind: 'vs_computer'; difficulty: number; human: HumanSide }
+  | { kind: 'vs_buddy'; human: HumanSide; temperature: number }
   | { kind: 'two_players'; black_name?: string | null; white_name?: string | null };
 
 export type Awaiting = 'human' | 'computer' | 'nobody';
@@ -60,11 +62,29 @@ export type ApiError =
   | { code: 'not_your_turn' }
   | { code: 'illegal_move'; square: number }
   | { code: 'nothing_to_undo' }
-  | { code: 'hint_unavailable' };
+  | { code: 'hint_unavailable' }
+  | { code: 'buddy_unavailable' };
+
+/** Set by vite: true in the phone builds (`--mode mobile`), which carry Oroletto. */
+declare const __WITH_ORO__: boolean;
+/** Set by vite: true in the website build (`--mode site`). */
+declare const __SESSION_ONLY__: boolean;
 
 /** True inside the Tauri desktop app. */
 const inTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-const web = inTauri ? null : createWebBackend();
+// The phone apps (vite --mode mobile) carry Oroletto and run it in the web view with onnxruntime-web;
+// the single-file web page has no network, so its levels are the classic bots.
+const modelLoad: Promise<LoadedOroletto> | undefined =
+  !inTauri && __WITH_ORO__ ? import('./engine/oroletto-ort.ts').then((m) => m.loadOroletto('./oroletto/')) : undefined;
+const web = inTauri ? null : createWebBackend({ oroletto: modelLoad });
+
+/** True on the website: progress lasts one session, and you can carry your level over by typing it in. */
+export const sessionOnly: boolean = typeof __SESSION_ONLY__ !== 'undefined' && __SESSION_ONLY__;
+
+/** Buddy (the adaptive opponent) needs Oroletto in the page: true in the phone builds only. */
+export const buddyAvailable = modelLoad !== undefined;
+/** Oroletto's network and levels, for measuring how well you play (rejects if it cannot load). */
+export const model = (): Promise<LoadedOroletto> => modelLoad ?? Promise.reject(new Error('no model in this build'));
 
 export const newGame = (mode: Mode): Promise<Snapshot> => (web ? web.newGame(mode) : invoke('new_game', { mode }));
 export const play = (square: number): Promise<Snapshot> => (web ? web.play(square) : invoke('play', { square }));

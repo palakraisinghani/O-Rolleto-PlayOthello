@@ -274,3 +274,21 @@ test('a forced move (including a pass) is returned immediately', async () => {
   assert.deepEqual(p.legalMoves(), [PASS]);
   assert.equal(await chooseMove(p, 4, new Rng(1), noCtl), PASS);
 });
+
+// ---------------------------------------------------------------- Buddy
+
+test('Buddy needs Oroletto; with a model it answers the human', async () => {
+  rejects(() => make().session.newGame({ kind: 'vs_buddy', human: 'black', temperature: 1 }), 'buddy_unavailable');
+
+  // A flat stand-in network: every move equally likely, every position even.
+  const flat = { async evaluate() { return { logits: new Array(65).fill(0), value: 0 }; } };
+  const { session, waitState } = make({ oroletto: Promise.resolve({ evaluator: flat, levels: { sims: 8, temperatures: [8, 2, 1, 0] } }) });
+  const first = session.newGame({ kind: 'vs_buddy', human: 'black', temperature: 1.5 });
+  assert.deepEqual(first.mode, { kind: 'vs_buddy', human: 'black', temperature: 1.5 });
+  assert.equal(first.awaiting, 'human');
+  await assert.rejects(session.hint(), (e: any) => e.code === 'hint_unavailable'); // no tips against Buddy
+  session.play(sq('d3'));
+  const replied = await waitState((s) => s.history.length === 2);
+  assert.equal(replied.awaiting, 'human');
+  assert.equal(replied.history.length, 2);
+});
