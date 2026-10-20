@@ -3,7 +3,7 @@
 ## Option A (recommended): serve it from this repository
 
 This repo can publish the game itself, so your site only has to link to it, and updating the game
-is just a `git push`. The build writes the page to `docs/index.html`, which GitHub Pages serves.
+is just a `git push`. `docs/` is the **full site**: the page, Oroletto (`docs/oroletto/`, 1.8 MB) and the WebAssembly runtime, so every level is Oroletto and **Play Buddy** and **My Progress** work (progress lasts for the session only; players note their level and type it in next time). GitHub Pages serves it as plain static files.
 
 1. **Push this repo** to GitHub (`git push`).
 2. On GitHub: repository **Settings → Pages → Build and deployment → Source: Deploy from a branch**,
@@ -12,13 +12,13 @@ is just a `git push`. The build writes the page to `docs/index.html`, which GitH
 3. **Link it from your site.** Either a plain link to that address, or the Play button: paste
    `web/embed/play-button.html` into your page and set
    `data-src="https://palakraisinghani.github.io/O-Rolleto-PlayOthello/"`.
-4. **Updating later:** `cd ui && npm run build:web`, commit `docs/` and `web/`, push.
+4. **Updating later:** `cd ui && npm run build:site`, commit `docs/`, push. (`npm run build:web` rebuilds only the single-file page in `web/`, used by Option B.)
 
 Only the contents of this repo are published, so anything committed here is public (the repo is public).
 
 ## Option B: copy the file into your site's repository
 
-Two files do everything:
+This uses the single-file page, which has **no Oroletto**: its levels are classic bots, and there is no Buddy. Two files do everything:
 
 | File | What it is |
 |---|---|

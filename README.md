@@ -1,15 +1,14 @@
 # Othello Player
 
-A desktop app for playing Othello (8×8) on your own machine, offline. Play the computer at four difficulty levels (legal-move rings and a limited number of tips on the easier ones, no undo), or play a friend on the same computer. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); one model (the strongest) plays every level, and the four levels differ only in the move temperature.
+Othello (8×8) as a **desktop app**, an **Android app** and a **website** (GitHub Pages), all offline-capable. Play the computer at four difficulty levels (legal-move rings and a limited number of tips on the easier ones, no undo), play **Buddy**, an opponent that learns how well you play and stays slightly stronger than you, or play a friend on the same device. The computer is **Oroletto**, an AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); one model (the strongest) plays every level, and the four levels differ only in the move temperature.
 
-> **Status: early development.** The Rust engine, baseline bots, UI-facing API, Tauri shell and a playable, styled UI exist. Oroletto is not built yet. See [Roadmap](#roadmap).
+> **Status.** Playable everywhere. **Oroletto plays in the Android app and on the GitHub Pages site** (the network runs in the web view with ONNX Runtime Web, driven by a TypeScript port of the search that matches OthelloRL's visit counts exactly), and Buddy and My Progress work there too. The single-file web page uses classic bots. The **desktop app** has the Rust engine, API and Tauri shell with the full UI, but its computer is still a placeholder bot (level 1 random, levels 2–4 greedy): the Rust search and ONNX inference are the one big piece not built yet. See [Roadmap](#roadmap).
 
-## Planned stack
+## Stack
 
-- **Core and AI:** Rust: bitboard engine, MCTS, and ONNX inference with the pure-Rust `tract-onnx` crate (no ML runtime to install).
-- **App shell:** [Tauri 2](https://tauri.app).
-- **UI:** Svelte + TypeScript.
-- **Targets:** Linux, macOS and Windows, built from source.
+- **Desktop:** Rust bitboard engine and API, [Tauri 2](https://tauri.app) shell. Planned: MCTS and ONNX inference in Rust with the pure-Rust `tract-onnx` crate (no ML runtime to install). Linux, macOS and Windows, built from source.
+- **Web and Android:** the same engine and session ported to TypeScript (`ui/src/lib/engine/`, verified against the same golden data), Oroletto through `onnxruntime-web` (WebAssembly), Android packaged with [Capacitor](https://capacitorjs.com).
+- **UI (all targets):** Svelte + TypeScript.
 
 The UI never implements rules: it sends commands (`new_game`, `play`, `undo`, ...) and renders the state it gets back, so the design can change without touching the engine. Details, requirements and open decisions are in [`SPEC.md`](SPEC.md).
 
@@ -21,18 +20,21 @@ launch.sh                  launches the app in development mode
 design.md                  design tokens for the whole look (edit to tune the UI)
 web/othello.html           the whole game as one self-contained page, classic bots only (built by `npm run build:web`)
 docs/                      this repository's GitHub Pages site: the full game with Oroletto, Buddy and My Progress (built by `npm run build:site`)
+mobile/                    the Android app: Capacitor project, icons, README (see mobile/README.md)
+models/                    Oroletto: oroletto-8x8.onnx (1.8 MB) and its manifest (levels, search settings)
+.github/workflows/         android.yml: builds the .apk and attaches it to a release on a version tag
 Cargo.toml                 Rust workspace
 core/                      Rust crate `othello-core`: engine, rules, history/undo, random + greedy bots
 api/                       Rust crate `othello-api`: the command/event API the UI talks to (see SPEC §4.3)
 app/                       Tauri shell: forwards UI commands to the API, engine events to the UI
-ui/                        Svelte + TypeScript front-end (design-token driven; see design.md)
+ui/                        Svelte + TypeScript front-end and the TypeScript engine, Oroletto search and Buddy (design-token driven; see design.md)
 LICENSE                    MIT
 requirements.txt           Python tooling dependencies (not needed to run the app)
 tools/make_golden.py       generates the golden test data from OthelloRL
 tests/golden/              reference data the Rust engine is tested against
 ```
 
-Planned (not yet created): MCTS and Oroletto in `core/`, and `models/` (Oroletto ONNX + manifest).
+Planned (not yet created): MCTS and ONNX inference in Rust (`core/`), so the desktop app can play Oroletto too.
 
 ## Conventions
 
@@ -71,7 +73,7 @@ With the Rust toolchain installed:
 
 ```bash
 cargo test      # engine + API tests, incl. the golden-file checks against OthelloRL
-(cd ui && npm test)   # the TypeScript engine used by the web page, against the same golden file
+(cd ui && npm test)   # the TypeScript engine against the same golden file, the Oroletto search against OthelloRL's visit counts (parity_8x8.json), sessions, bots, review and Buddy's skill estimate
 ```
 
 ## The GitHub Pages site (`docs/`)
@@ -86,7 +88,7 @@ Try it locally with `cd docs && python3 -m http.server 8000` (browsers need http
 
 ## Web version (host it on GitHub Pages)
 
-[`web/othello.html`](web/othello.html) is the whole game as **one self-contained file** (about 260 KB: the code, fonts and textures are all inside it). It looks and plays like the desktop app: same wood, brass, velvet, LED strip and chip animations. It needs no server and no network, and it even works opened straight from disk.
+[`web/othello.html`](web/othello.html) is the whole game as **one self-contained file** (about 330 KB: the code, fonts and textures are all inside it). It looks and plays like the desktop app: same wood, brass, velvet, LED strip and chip animations. It needs no server and no network, and it even works opened straight from disk.
 
 **To put it on your GitHub Pages site**, copy the file into your site's repository and link to it:
 
@@ -139,9 +141,8 @@ The engine and API only need the Rust toolchain ([rustup](https://rustup.rs)). T
 
 ## Roadmap
 
-**Phase A: backend and API, with a plain UI:** M0 decisions → M1 Rust engine and baseline bots → M2 Tauri command/event API (frozen here) → M3 plain playable UI → M4 Oroletto and the four levels (needs the 8×8 model).
-**Phase B: design:** M5 visual design (casino card-room look and chip animations; first pass done, tuned via `design.md`) → M6 release.
-Online play against a friend is a possible post-v1 feature. See [`SPEC.md`](SPEC.md) §9.
+**Done:** engine and rules (Rust and TypeScript), the command/event API, Tauri shell, the casino card-room UI, post-game review with Orolleto the dealer, How to Play with pictures, **Oroletto in the browser and on Android** (TypeScript PUCT search, parity-tested), **Buddy and My Progress**, the GitHub Pages site and the Android build workflow.
+**Next:** Oroletto in the desktop app (Rust search and ONNX inference, M4), then desktop release binaries and CI (M6), sound. iOS is not planned (it would need a paid Apple developer account). Online play against a friend is a possible post-v1 feature. See [`SPEC.md`](SPEC.md) §9.
 
 ## Licence
 

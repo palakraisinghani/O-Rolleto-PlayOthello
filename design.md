@@ -36,7 +36,7 @@ animations, hints, banners and dialogs, poker chips, the roulette wheel, the gam
 
 ## 1. Neon lights (the shared accent palette)
 
-Used for the title sign, hint rings, bulbs and glows.
+Used for the title sign, legal-move rings, bulbs and glows.
 
 ```tokens
 neon_pink: #ff2fb3

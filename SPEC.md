@@ -1,10 +1,10 @@
 # Othello Player — Specification
 
-A desktop application for playing Othello on your own machine. You can play against the computer at four difficulty levels, all played by **Oroletto**, the AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL). Two people can also play each other on the same computer.
+Othello as a desktop application, an Android app and a website. You can play against the computer at four difficulty levels, all played by **Oroletto**, the AlphaZero-style agent trained in the companion research repo [OthelloRL](../OthelloRL); play **Buddy**, which learns your level and plays slightly stronger than you (§3.9); or play a friend on the same device.
 
 The user interface will be designed in iterations, so the architecture keeps the **UI layer cleanly separate** from the game engine and the AI.
 
-Status: **draft v0.2** — sections marked ❓ need a decision before implementation starts. Decided so far: Tauri + Svelte, 8×8 board, four levels from one model weakened only by move temperature.
+Status: **v0.3**. Decided: Tauri + Svelte, 8×8 board, four levels from one model weakened only by move temperature, Oroletto in the browser and Android through ONNX Runtime Web and a TypeScript search, Buddy, GitHub Pages and Android sideloading for distribution (no iOS). **Built:** everything in §3 on the website and Android; on the desktop the UI, API and shell, with placeholder bots until the Rust search lands (M4).
 
 ---
 
@@ -16,21 +16,25 @@ Status: **draft v0.2** — sections marked ❓ need a decision before implementa
 - **Play vs Computer** at four difficulty levels, all played by Oroletto (weakened by move temperature on the lower levels).
 - **Two-player (local, same screen)** mode.
 - Correct rules in every situation, including forced passes, double-pass endings and full boards.
+- **Play Buddy** and **My Progress** (§3.9).
+- An **Android app** (a downloadable `.apk`) and a **website** on GitHub Pages, both playing Oroletto in the web view (§3.8).
 
 **Non-goals (v1)**
 - Online or networked multiplayer, accounts, matchmaking, ratings.
 - Training or modifying models inside the app; models are produced in OthelloRL and shipped as files.
-- Mobile apps (the architecture shouldn't rule them out later).
+- An iOS app (it would need a paid Apple developer account; the Android app is the mobile target).
+- Distribution through app stores (the Android `.apk` is published on GitHub Releases).
 
 ---
 
 ## 2. Users and core flows
 
-1. **Launch** → home screen with: *Play vs Computer*, *Two Players*, *How to Play*, *Settings*.
+1. **Launch** → home screen with: *Play vs Computer*, *Play Buddy* and *My Progress* (builds with Oroletto), *Two Players*, *How to Play*, *Settings*.
 2. **Play vs Computer** → choose difficulty, your colour (Black / White / Random) and board size → game screen.
 3. **Two Players** → optional player names, board size → game screen. Players take turns on the same device.
 4. **Game screen** → play to the end → result dialog (score, winner) → *Rematch*, *Swap colours* or *Home*.
-5. **How to Play** → short illustrated rules: placing, flipping, passing and the end of the game, with the same examples as the report's rules figure.
+5. **Play Buddy** → pick your colour (Buddy's level shown) → game screen; the result dialog shows your measured level. **My Progress** shows the trajectory.
+6. **How to Play** → short guide with pictures drawn from the real board: trapping and flipping, any direction, passing, winning, the Tip button, legal-move rings.
 
 ---
 
@@ -58,20 +62,20 @@ Status: **draft v0.2** — sections marked ❓ need a decision before implementa
 
 | Level | Name | Simulations | Temperature T |
 |---|---|---|---|
-| 1 | Easy | shared (≈200) | high (placeholder 2.0) |
-| 2 | Medium | shared | placeholder 1.0 |
-| 3 | Hard | shared | placeholder 0.25 |
-| 4 | Master | shared | 0 (most-visited move) |
+| 1 | Easy | 200 (shared) | 8 |
+| 2 | Medium | 200 | 2 |
+| 3 | Hard | 200 | 1 |
+| 4 | Master | 200 | 0 (most-visited move) |
 
-The values are **placeholders** until OthelloRL calibrates them on the 8×8 model (OthelloRL PLAN Step 5.7):
+These are the **calibrated values** from OthelloRL (`levels_calibrated: true` in the manifest), chosen so that each level beats the one below it:
 - the shared simulation count is the largest that keeps the worst-case move within the 2 s budget;
-- the four temperatures are chosen from candidates {0, 0.25, 0.5, 1, 2, 4} so that each level beats the one below it at least 70% of the time.
+- the four temperatures come from candidates {0, 0.25, 0.5, 1, 2, 4, 8}.
 
 The calibrated values are delivered in the model manifest (`models/oroletto-8x8.json`, fields `levels.sims` and `levels.ladder[].temperature`). They are read at runtime, not hard-coded.
 
 - The AI must respond within **≤ 2 s per move** on a typical laptop at every level. Every level uses the same search, so they all cost the same.
-- The rule-based bots from OthelloRL (random, greedy, heuristic, minimax) are **not** player levels. They are kept as test baselines and as stand-ins during development before the model is ready.
-- Temperature applies only to the in-game move choice. Hints and the parity test use temperature 0.
+- The rule-based bots from OthelloRL (random, greedy, heuristic, minimax) are **not** player levels. They are kept as test baselines, as the placeholder computer in the desktop app until the Rust search lands (M4), and as the fallback when the model cannot load in the web or Android build.
+- Temperature applies only to the in-game move choice. Tips and the parity test use temperature 0.
 
 ### 3.4 Two Players (local)
 - Hot-seat play on one screen: same board UI, no AI, optional names, no undo, no tips or legal-move rings, and a result dialog naming the winner.
@@ -91,7 +95,7 @@ The calibrated values are delivered in the model manifest (`models/oroletto-8x8.
 
 ### 3.7 Game review and the dealer
 - **Review (vs computer only).** The result dialog offers "Review game": the finished game is replayed from the first move to the last (buttons, arrow keys, Home/End, a strip of your moves, "Next miss"). Each of your moves gets a verdict against the computer's own ranking of the moves from that position: **best** (its first choice), **good** (in its **top-3** moves, or inside the **top-p = 0.2** probability nucleus), **missed** (neither), or **forced** (only legal move; not scored). Board badges mark your move and the computer's favourite squares; a summary shows the share of your moves that matched. Passes and the computer's moves are replayed but not judged.
-- The ranking comes from a pluggable analyzer (`ui/src/lib/engine/review.ts`). Until Oroletto is wired in it is the web build's alpha-beta search (every legal move scored at depth 4, exact in the last 6 squares) turned into probabilities with a softmax; with Oroletto it becomes the MCTS root visit shares, and nothing else changes. k, p and the softmax temperature are constants in that file.
+- The ranking comes from a pluggable analyzer (`ui/src/lib/engine/review.ts`). Until Oroletto is wired in it is the web build's alpha-beta search (every legal move scored at depth 4, exact in the last 6 squares) turned into probabilities with a softmax; with Oroletto it becomes the MCTS root visit shares, and nothing else changes. k, p and the softmax temperature are constants in that file. **Current state:** the review still uses the alpha-beta analyzer in every build, including those that carry Oroletto; switching it to Oroletto's visit shares is a small change not yet made.
 - **Orolleto**, the card-room dealer (an SVG character in a green eyeshade and red bow tie, coloured by `design.md` section 21), greets you on the home screen, comments during games against the computer (thinking, corners, big flips, passes, the result) and comments on each reviewed move. He draws on a pool of about 450 kind, welcoming lines grouped by situation and by page (`ui/src/lib/dialogues.ts`); against the computer he is the opponent across the table (named Orolleto on the scoreboard). Two knobs in `ui/src/lib/dealer.ts` control how much he talks: **chattiness** (default 0.55: the chance he remarks on an ordinary move; corners and big flips are 1.6x as likely) and the **hold** (default 6 plies: a line stays up at least that long before an ordinary remark replaces it; corners, big flips, passes, hints, undo and the end of a game speak up at once). He never repeats a line he said recently. His moods (idle, thinking, happy, sad) and his animations obey Settings > Animations.
 - **Reloads are harmless:** the page you are on is remembered for the session, and in the desktop app a running game is picked up again from the engine, so a reload of the window (the dev server does that when files change) does not throw you back to the home screen. The web build keeps its game in the page, so a reload there ends the game.
 
@@ -107,7 +111,9 @@ The calibrated values are delivered in the model manifest (`models/oroletto-8x8.
 ### 3.8 Web build
 - A **single self-contained HTML page** (`web/othello.html`, built by `npm run build:web`; classic bots only, for embedding anywhere). The **GitHub Pages site** in `docs/` is a separate, multi-file build (`npm run build:site`: the page plus `oroletto/` with the 1.8 MB model, and the ~14 MB WebAssembly runtime, about 4 MB over the wire), where **every level is Oroletto** and Buddy and My Progress work runs the same UI in a browser, for hosting on GitHub Pages or anywhere else. No server or network is needed.
 - The UI talks to a backend through `ui/src/lib/api.ts`: inside Tauri that is the Rust engine; in a browser it is a **TypeScript port** of the engine and session (`ui/src/lib/engine/`), with settings in localStorage. The port is verified against the same golden data as the Rust engine and has the same session behaviour (automatic passes, undo rules, stale computer moves discarded).
-- The browser build has no neural network, so its four levels are classic bots: random, greedy, alpha-beta depth 3, and time-limited iterative-deepening alpha-beta (about 0.9 s). Oroletto stays desktop-only unless an in-browser model runtime is added later.
+- **Oroletto in the browser** (Pages site and Android): `ui/src/lib/engine/oroletto.ts` is a TypeScript port of OthelloRL's PUCT search (c_puct 1.5, values negated each ply, `sqrt(N+1)` in the exploration term) running the ONNX model through `onnxruntime-web` (`oroletto-ort.ts`, lazily loaded). The search reproduces the exact root visit counts of `tests/golden/parity_8x8.json` for all 50 positions at 16, 64 and 200 simulations (`oroletto.test.ts`). Shared simulations and per-level temperatures come from the manifest. If the model cannot load, the session falls back to classic bots.
+- The single-file page (`web/othello.html`) has no model, so its four levels are classic bots: random, greedy, alpha-beta depth 3, and time-limited iterative-deepening alpha-beta (about 0.9 s).
+- **Android** (`mobile/`, Capacitor): the same build as the site (`npm run build:mobile`) in a native shell, progress kept on the device, min Android 7.0, debug-signed `.apk`. `.github/workflows/android.yml` builds it and attaches it to a GitHub Release when a `v*` tag is pushed. Built and tested on an Android 14 emulator (a full game against Buddy, progress kept across restarts).
 - The page is generated: rebuild it after any UI or `design.md` change.
 
 ## 4. Architecture
@@ -136,6 +142,7 @@ The calibrated values are delivered in the model manifest (`models/oroletto-8x8.
   - small native binaries (~10–20 MB) for all three OSes;
   - fast MCTS in Rust;
   - the UI is just web code, the fastest stack for repeated design iteration.
+- **Web and Android** use the same UI over a **TypeScript port** of the engine and session instead of the Rust one (§3.8): the network runs in the web view with `onnxruntime-web`, and Android is the web build in a Capacitor shell. This is how Oroletto reached phones and the website before the Rust search exists. The desktop app will get Oroletto through the Rust path above (M4).
 - **Build prerequisites:** the Rust toolchain (rustup) and Node.js. On Linux, also the system WebView libraries (`libwebkit2gtk-4.1-dev` and friends), which need `sudo apt install`.
 
 **Alternative: Python + PySide6 (Qt/QML), packaged with PyInstaller.**
@@ -155,11 +162,11 @@ The calibrated values are delivered in the model manifest (`models/oroletto-8x8.
 The Tauri shell only forwards these to a `Session`; the logic is testable without a UI. Types are serde JSON with snake_case names.
 
 **Commands** (each returns the new `Snapshot` or an `ApiError {code, ...}`):
-- `new_game(mode)`: `mode` is `{kind:"vs_computer", difficulty:1..4, human:"black"|"white"|"random"}` or `{kind:"two_players", black_name?, white_name?}`.
+- `new_game(mode)`: `mode` is `{kind:"vs_computer", difficulty:1..4, human:"black"|"white"|"random"}` `{kind:"vs_buddy", human, temperature}` (the UI computes Buddy's temperature from your profile; web/Android sessions only, `buddy_unavailable` without a model) or `{kind:"two_players", black_name?, white_name?}`.
 - `play(square)`: a placement, square 0–63 (`a1` = 0). Passes are never sent by the UI.
 - `undo()`: two-player undoes one move; vs computer undoes your move and the reply. Automatic passes go with them. A computer search in progress is cancelled.
 - `resign()`: you lose vs the computer; in two-player mode the side to move loses.
-- `hint()`: a suggested square, vs computer on your turn only (blocking; the app calls it off the UI thread).
+- `hint()`: the best square Oroletto sees, vs computer on your turn only (blocking; the app calls it off the UI thread). The UI calls it the **Tip** button, limited per game by level (§3.2). `undo()` still exists in the API but the UI has no Undo button.
 - `snapshot()`: the current state, e.g. after a reload.
 - Settings are a `Settings` struct (`show_legal_moves`, `animations`, `sound`, `theme`, `default_difficulty`, `default_human_side`) loaded from and saved to a JSON file by the shell.
 
@@ -172,7 +179,7 @@ The Tauri shell only forwards these to a `Session`; the logic is testable withou
 - The computer runs on a worker thread through an `Engine` trait with a cancellation flag and progress reporting. A move that finishes after an undo, new game or resignation is discarded.
 - Events are emitted after the internal lock is released.
 - There is no separate `cancel_ai` command: cancellation happens implicitly on undo, new game and resign.
-- Until Oroletto lands (M4), levels use placeholder bots: level 1 random, levels 2–4 greedy.
+- In the desktop (Rust) backend, until Oroletto lands (M4), levels use placeholder bots: level 1 random, levels 2–4 greedy. The TypeScript backend (web, Android) plays Oroletto, and the classic bots when no model is loaded. The Rust API does not know `vs_buddy` yet.
 
 ## 5. Non-functional requirements
 - **Performance:** UI at 60 fps during animations; AI move ≤ 2 s; cold start ≤ 2 s.
@@ -189,42 +196,50 @@ Othello-Player/
   SPEC.md            this document
   README.md          what it is + build instructions
   models/            oroletto-8x8.onnx + manifest
+  mobile/            Android app (Capacitor project, icons, README)
+  docs/              the GitHub Pages site (built by `npm run build:site`)
+  web/               the single-file page and the play-button snippet
   core/              Rust crate: engine, bots, MCTS, ONNX inference (UI-independent)
   app/               Tauri shell (Rust) wiring core ↔ UI commands
   ui/                TypeScript front-end (screens, board, themes)
   tests/golden/      reference data generated from OthelloRL (engine_8x8.json)
   tools/             make_golden.py (regenerates the golden data; see requirements.txt)
   requirements.txt   Python tooling deps only
-  .github/workflows/ CI: test + build release binaries for 3 OSes
+  .github/workflows/ android.yml builds the .apk on a version tag; desktop CI (test + release binaries for 3 OSes) still to do
 ```
 
 ## 7. Testing and quality
 - **Engine:** perft (8×8), forced pass, double-pass end, full-board draw, and dihedral symmetry; cases mirrored from OthelloRL's test suite.
 - **Bots:** heuristic and minimax match OthelloRL's choices on fixed positions (deterministic tie-break in test mode).
 - **Oroletto:** ONNX outputs match PyTorch outputs within 1e-5 on sample positions, plus the search-parity test (§4.2).
-- **App:** UI smoke tests for each screen; a full scripted game in each mode.
-- **CI:** every push runs the tests; tagged releases build installable binaries for all three OSes.
+- **TypeScript engine** (`npm test`, 76 tests): the same golden file as Rust, sessions (automatic passes, stale replies, Buddy mode), bots, review, **Oroletto parity** (exact visit counts for 50 positions × 3 simulation counts), **Buddy** (synthetic players recovered, the trajectory follows an improving player, real-network games measured in order of skill, carrying a level over).
+- **App:** UI smoke tests for each screen; a full scripted game in each mode (`npm run test:web` for the single-file page). The phone build was also driven in headless Chrome and on an Android 14 emulator (full game against Buddy, progress kept after a restart).
+- **CI:** tagged releases (`v*`) build the Android `.apk` (`.github/workflows/android.yml`); running the tests on every push and desktop binaries for three OSes are still to do.
 
 ## 8. Open decisions ❓
 1. ~~**Technology stack**~~ — **decided: Tauri 2 + Svelte.**
 2. ~~**Board sizes**~~ — **decided: 8×8.** The engine supports 8×8 only. The 8×8 Oroletto is being trained in OthelloRL (Phase 5). It will be exported and copied into `models/` when ready. Until then development uses the rule-based bots as stand-ins.
 3. ~~**Difficulty ladder**~~ — **decided: 4 levels, one model (the strongest), weakened only by move temperature**, with a shared simulation count and no root noise (§3.3). The values are calibrated in OthelloRL and delivered in the manifest.
 4. **Design process:** start from a few static mock-ups (home + game screen, light/dark) for you to choose from before building the real UI?
-5. **Distribution:** source-only builds for now, or also GitHub Releases with prebuilt binaries? Also code signing for macOS/Windows (later).
+5. ~~**Distribution**~~ — **decided:** the website on GitHub Pages (`docs/`) and the Android `.apk` on GitHub Releases, no store and no developer account (so no iOS). Desktop: source builds for now; signed binaries later.
 6. ~~**Licence**~~ — **decided: MIT** (`LICENSE`).
 7. ~~**GitHub**~~ — **decided:** [`palakraisinghani/O-Rolleto-PlayOthello`](https://github.com/palakraisinghani/O-Rolleto-PlayOthello).
 
 ## 9. Milestones
 **Phase A — Backend + API, with a plain throwaway UI** (goal: freeze the command/event API)
-1. **M0 — Decisions:** close §8 (remaining: mock-ups, distribution). The Oroletto ONNX export from OthelloRL happens when the 8×8 model is ready (not blocking).
+1. **M0 — Decisions:** close §8 (remaining: mock-ups). The Oroletto ONNX export from OthelloRL happens when the 8×8 model is ready (not blocking).
 2. **M1 — Core:** 8×8 engine + rule-based bots (test baselines and dev stand-ins) + rules tests (cross-checked against OthelloRL).
 3. **M2 — API:** `othello-api` crate (done: commands, events, session, AI worker thread with cancellation, settings; see §4.3), then the thin Tauri shell around it; **API frozen when the shell lands**.
 4. **M3 — Plain UI:** unstyled board, counts, pass banner, settings, result; scripted full game in each mode.
-5. **M4 — Oroletto in the app:** ONNX inference + MCTS + move temperature, with the parity tests against `tests/golden/parity_8x8.json`. The four levels read the shared `sims` and the per-level temperatures from the manifest, as calibrated by OthelloRL.
+5. **M4 — Oroletto in the app:** ONNX inference + MCTS + move temperature, with the parity tests against `tests/golden/parity_8x8.json`. The four levels read the shared `sims` and the per-level temperatures from the manifest, as calibrated by OthelloRL. **Done in TypeScript** (web, Android; §3.8). **Still to do in Rust** for the desktop app.
 
 **Phase B — Design** (no engine or API changes)
-6. **M5 — Design iterations:** first pass done (casino card-room look, chip animations, design tokens; see §3.6); remaining: tuning with `design.md`, How-to-Play illustrations, sound.
-7. **M6 — Release:** README build guide, CI, release binaries.
+6. **M5 — Design iterations:** first pass done (casino card-room look, chip animations, design tokens; see §3.6); How-to-Play pictures done; remaining: tuning with `design.md`, sound.
+7. **M6 — Release:** README build guide, CI, release binaries. Android: done by hand and by `android.yml` (first cloud run pending); desktop: to do.
+
+**Added beyond the original plan (done)**
+- **M7 — Oroletto on the web and Android:** `onnxruntime-web`, the TypeScript search with exact parity, the Capacitor app and its workflow, the Pages site.
+- **M8 — Buddy and My Progress** (§3.9).
 
 **Post-v1 (not committed)**
 8. **Online play:** play a friend on another computer via room code and a small relay server. The engine will have a `Player` abstraction (Human, AI, later Remote) so this needs no API redesign.
