@@ -164,3 +164,18 @@ test('a custom analyzer (such as Oroletto later) is honoured', async () => {
 test('an unreadable history is reported', async () => {
   await assert.rejects(() => reviewGame(['d3', 'zz'], 'black'), /unreadable move/);
 });
+
+test('an analyzer that supplies its own probabilities is used as given (Oroletto visit shares)', () => {
+  const ranked = [
+    { move: 19, score: 120, prob: 0.6 },
+    { move: 26, score: 50, prob: 0.25 },
+    { move: 37, score: 20, prob: 0.1 },
+    { move: 44, score: 10, prob: 0.05 }
+  ];
+  const fb = judge(ranked, 26);
+  assert.equal(fb.candidates.map((c) => c.move).join(), '19,26,37,44');
+  assert.ok(Math.abs(fb.candidates[0].prob - 0.6) < 1e-9, 'probabilities are the analyzer\'s own');
+  assert.equal(fb.verdict, 'good'); // second best: inside the top-3
+  assert.equal(judge(ranked, 44).verdict, 'miss'); // fourth, outside top-3 and the 0.2 nucleus
+  assert.equal(judge(ranked, 19).verdict, 'best');
+});

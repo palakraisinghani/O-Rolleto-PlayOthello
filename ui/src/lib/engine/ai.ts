@@ -196,6 +196,8 @@ export interface RankedMove {
   move: number;
   /** Search value for the side to move; higher is better. Only differences are meaningful. */
   score: number;
+  /** The computer's own chance of choosing this move, when its search provides one (Oroletto's visit shares). */
+  prob?: number;
 }
 
 /**

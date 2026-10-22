@@ -3,7 +3,7 @@
 // and the app can use onnxruntime-web (WebAssembly) on phones and in browsers.
 
 import { PASS, Position } from './position.ts';
-import type { Rng } from './ai.ts';
+import type { RankedMove, Rng } from './ai.ts';
 
 export interface Evaluation {
   /** 65 raw policy logits (64 squares + pass), from the side to move's view. */
@@ -71,6 +71,8 @@ export interface SearchResult {
   visits: number[];
   /** Network value of the root for the side to move. */
   value: number;
+  /** The network's own (softmaxed) preference for each of those moves, before any search. */
+  prior: number[];
 }
 
 export interface SearchOptions {
@@ -82,7 +84,7 @@ export interface SearchOptions {
 /** PUCT search without noise: deterministic for a given network. Returns null if cancelled. */
 export async function search(root: Position, sims: number, ev: Evaluator, opts: SearchOptions = {}): Promise<SearchResult | null> {
   const first = await expand(root, ev);
-  if (!first.node) return { moves: [], visits: [], value: first.value };
+  if (!first.node) return { moves: [], visits: [], value: first.value, prior: [] };
   const rootNode = first.node;
 
   for (let s = 0; s < sims; s++) {
@@ -126,7 +128,7 @@ export async function search(root: Position, sims: number, ev: Evaluator, opts: 
       value = -value;
     }
   }
-  return { moves: rootNode.moves, visits: rootNode.visits, value: first.value };
+  return { moves: rootNode.moves, visits: rootNode.visits, value: first.value, prior: rootNode.prior };
 }
 
 /** Pick a move from visit counts: T = 0 most visited (random among ties), else sample by N^(1/T). */
@@ -179,4 +181,18 @@ export async function chooseOroletto(
   const r = await search(position, levels.sims, ev, opts);
   if (!r) return null;
   return pickMove(r, opts.temperature ?? levels.temperatures[Math.min(Math.max(level, 1), 4) - 1], rng);
+}
+
+/**
+ * The review's analyzer backed by Oroletto: every legal move scored by its visit count (the network's own
+ * preference breaks ties, so the many unvisited moves are not all "equally top-3"), with the visit share as
+ * the probability.
+ */
+export function orolettoAnalyzer(ev: Evaluator, sims: number, cancelled?: () => boolean) {
+  return async (position: Position): Promise<RankedMove[]> => {
+    const r = await search(position, sims, ev, { cancelled });
+    if (!r) throw new Error('cancelled');
+    const total = r.visits.reduce((a, b) => a + b, 0) || 1;
+    return r.moves.map((move, i) => ({ move, score: r.visits[i] + r.prior[i], prob: r.visits[i] / total }));
+  };
 }

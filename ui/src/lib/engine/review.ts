@@ -6,9 +6,9 @@
 // probabilities add up to p); the single best move is "best". Moves that are the only legal move are
 // "forced" and left out of the score.
 //
-// Where the opinion comes from is pluggable (`Analyzer`). Today it is the web build's alpha-beta search
-// with a softmax over the move values; once Oroletto is wired in, the analyzer will return its MCTS root
-// visit shares instead, and nothing else here changes.
+// Where the opinion comes from is pluggable (`Analyzer`). With Oroletto in the build it is Oroletto's MCTS
+// root visit shares (see `orolettoAnalyzer`); otherwise it is the web build's alpha-beta search with a
+// softmax over the move values. Nothing else here changes.
 
 import { rankMoves, type RankedMove } from './ai.ts';
 import { PASS, Position, parseMove, type Side } from './position.ts';
@@ -52,9 +52,12 @@ export interface JudgeOptions {
 export function toCandidates(ranked: RankedMove[], temperature = REVIEW_TEMPERATURE): Candidate[] {
   const sorted = ranked.slice().sort((a, b) => b.score - a.score || a.move - b.move);
   if (sorted.length === 0) return [];
+  // An analyzer that knows its own probabilities (Oroletto: visit shares) supplies them; otherwise turn the
+  // search values into probabilities with a softmax.
   const top = sorted[0].score;
-  const weights = sorted.map((r) => Math.exp((r.score - top) / temperature));
-  const total = weights.reduce((a, b) => a + b, 0);
+  const given = sorted.every((r) => typeof r.prob === 'number');
+  const weights = given ? sorted.map((r) => r.prob as number) : sorted.map((r) => Math.exp((r.score - top) / temperature));
+  const total = weights.reduce((a, b) => a + b, 0) || 1;
   return sorted.map((r, i) => ({
     move: r.move,
     score: r.score,

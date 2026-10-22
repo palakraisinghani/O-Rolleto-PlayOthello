@@ -3,11 +3,13 @@
      The judging itself lives in engine/review.ts; this component only shows it. -->
 <script lang="ts">
   import { onMount } from 'svelte';
+  import * as api from './api';
   import { squareName, type Side, type Snapshot } from './api';
   import Board, { type Mark } from './Board.svelte';
   import Croupier from './Croupier.svelte';
   import { Dealer, seededRng, type Line } from './dealer';
   import Icon from './Icon.svelte';
+  import { orolettoAnalyzer } from './engine/oroletto.ts';
   import { PASS, Position } from './engine/position.ts';
   import { REVIEW_TOP_K, REVIEW_TOP_P, reviewGame, type Review, type ReviewStep, type Verdict } from './engine/review.ts';
 
@@ -25,10 +27,24 @@
 
   onMount(() => {
     let stop = false;
-    reviewGame(snap.history, human, {
-      onProgress: (done, total) => (progress = { done, total }),
-      cancelled: () => stop
-    })
+    // With Oroletto in the build it is the judge; otherwise the alpha-beta search stands in.
+    const analyzer = async () => {
+      if (!api.buddyAvailable) return undefined;
+      try {
+        const m = await api.model();
+        return orolettoAnalyzer(m.evaluator, m.levels.sims, () => stop);
+      } catch {
+        return undefined;
+      }
+    };
+    analyzer()
+      .then((analyze) =>
+        reviewGame(snap.history, human, {
+          analyze,
+          onProgress: (done, total) => (progress = { done, total }),
+          cancelled: () => stop
+        })
+      )
       .then((r) => {
         if (r && !stop) review = r;
       })

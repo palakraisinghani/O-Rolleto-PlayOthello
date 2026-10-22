@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import * as ort from 'onnxruntime-web';
 import { Position } from './position.ts';
-import { encode, search, type Evaluator } from './oroletto.ts';
+import { encode, orolettoAnalyzer, search, type Evaluator } from './oroletto.ts';
 
 const root = new URL('../../../../', import.meta.url);
 // The bitboards are 64-bit integers, which JSON.parse would round, so quote them first.
@@ -56,4 +56,17 @@ test('search reproduces the root visit counts exactly', async () => {
       assert.deepEqual(have, want, `position ${idx}, ${sims} sims`);
     }
   }
+});
+
+test('the review analyzer ranks moves by Oroletto visit share', async () => {
+  const ev = await makeEvaluator();
+  const c = parity.positions[0];
+  const ranked = await orolettoAnalyzer(ev, 200)(position(c));
+  const sum = ranked.reduce((a, r) => a + (r.prob ?? 0), 0);
+  assert.ok(Math.abs(sum - 1) < 1e-9);
+  const best = ranked.reduce((a, b) => (b.score > a.score ? b : a));
+  assert.ok(c.search['200'].most_visited.includes(best.move));
+  // unvisited moves are told apart by the network's preference, not all tied for the same rank
+  const scores = ranked.map((r) => r.score);
+  assert.equal(new Set(scores).size, scores.length, 'no two moves tie');
 });
