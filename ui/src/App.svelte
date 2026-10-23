@@ -367,7 +367,7 @@
     <h1 class="neon title">Play Buddy</h1>
     <DealerSlot mood={speech.mood} say={speech.say} />
     <form class="plaque panel" onsubmit={(e) => { e.preventDefault(); startBuddy(); }}>
-      <p class="buddy-intro">Buddy learns how you play and stays a little stronger than you, so every game is a fair challenge.</p>
+      <p class="buddy-intro"><strong>Oroletto can be your play buddy.</strong> It watches how well you play, game after game, and works out your level. Then it plays just a step above you and pulls you up slowly, so every game is a fair challenge and you keep getting better.</p>
       <div class="buddy-levels">
         <div><span class="muted">Your level</span><strong>{profile.level.toFixed(2)}</strong><span>{skillName(profile.level)}</span></div>
         <div><span class="muted">Buddy plays at</span><strong>{buddySkill(profile).toFixed(2)}</strong><span>{skillName(buddySkill(profile))}</span></div>
